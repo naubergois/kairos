@@ -59,6 +59,14 @@ class SwarmState(TypedDict, total=False):
 class RufloSwarmManager:
     def __init__(self) -> None:
         self._graph = self._build_graph()
+        self._tasks: dict[str, asyncio.Task[None]] = {}
+
+    def register_task(self, card_id: str, task: asyncio.Task[None]) -> None:
+        self._tasks[card_id] = task
+
+    def unregister_task(self, card_id: str, task: asyncio.Task[None]) -> None:
+        if self._tasks.get(card_id) is task:
+            self._tasks.pop(card_id, None)
 
     def _build_graph(self):
         graph = StateGraph(SwarmState)
@@ -202,6 +210,46 @@ class RufloSwarmManager:
             "mission_id": mission.id,
             "topology": mission.topology,
         })
+        return mission
+
+    async def stop_mission(self, mission_id: str) -> SwarmMission | None:
+        store = get_store()
+        raw = await store.get("swarm_missions", mission_id)
+        if not raw:
+            return None
+
+        mission = SwarmMission.model_validate(raw)
+        task = self._tasks.get(mission.card_id)
+        if task and not task.done():
+            task.cancel()
+
+        mission.status = "stopped"
+        mission.updated_at = datetime.utcnow()
+        if not mission.errors or mission.errors[-1] != "Missão parada pelo usuário":
+            mission.errors.append("Missão parada pelo usuário")
+        for agent in mission.agents:
+            if agent.status not in {"completed", "stopped"}:
+                agent.status = "stopped"
+        await store.upsert("swarm_missions", mission)
+
+        card_raw = await store.get("task_cards", mission.card_id)
+        if card_raw:
+            card = TaskCard.model_validate(card_raw)
+            previous = card.column
+            if card.column not in {KanbanColumn.CONCLUIDO, KanbanColumn.CANCELADO}:
+                card.column = KanbanColumn.CANCELADO
+            card.tags = list({*card.tags, "swarm_stopped"})
+            card.block_reason = "Enxame parado pelo usuário."
+            card.updated_at = datetime.utcnow()
+            await store.upsert("task_cards", card)
+            await self._move_children(card.id, KanbanColumn.CANCELADO, stagger=False)
+            await self._audit(
+                card,
+                "stop_swarm",
+                card.column.value,
+                {"mission_id": mission.id, "previous_state": previous.value},
+            )
+
         return mission
 
     async def execute(self, card: TaskCard) -> TaskCard:

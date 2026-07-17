@@ -106,6 +106,64 @@ async def _run_pipeline_safe(card_id: str) -> None:
             logger.exception("Failed to mark pipeline_error on %s", card_id)
 
 
+# Collections holding data linked to a card via `card_id`.
+CARD_RELATED_COLLECTIONS = [
+    "requirements",
+    "execution_plans",
+    "swarm_missions",
+    "artifacts",
+    "test_results",
+    "reviews",
+    "tickets",
+    "approvals",
+    "audit_events",
+    "conversations",
+]
+
+
+async def delete_card(card_id: str, *, cascade: bool = True) -> dict:
+    """Delete a card, its related data, its generated app, and (optionally) its child cards."""
+    from app.services import runtime as runtime_service
+
+    store = get_store()
+    card = await store.get("task_cards", card_id)
+    if not card:
+        raise HTTPException(status_code=404, detail="Cartão não encontrado")
+
+    ids = [card_id]
+    if cascade:
+        children = await store.list("task_cards", {"parent_id": card_id})
+        ids.extend(c["id"] for c in children)
+
+    for cid in ids:
+        runtime_service.stop_runtime(cid)
+        runtime_service.remove_workspace(cid)
+        for collection in CARD_RELATED_COLLECTIONS:
+            for row in await store.list(collection, {"card_id": cid}):
+                await store.delete(collection, row["id"])
+        await store.delete("task_cards", cid)
+
+    logger.info("Deleted card(s): %s", ids)
+    return {"ok": True, "deleted": ids}
+
+
+async def delete_cards(card_ids: list[str], *, cascade: bool = True) -> dict:
+    """Delete a batch of cards. Missing IDs are skipped."""
+    deleted: list[str] = []
+    for cid in card_ids:
+        if cid in deleted:
+            continue
+        try:
+            result = await delete_card(cid, cascade=cascade)
+            deleted.extend(i for i in result["deleted"] if i not in deleted)
+        except HTTPException as exc:
+            if exc.status_code != 404:
+                raise
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Nenhum cartão encontrado")
+    return {"ok": True, "deleted": deleted}
+
+
 async def reset_board(*, reseed_demo: bool = True) -> dict:
     """Delete all cards and generated apps so the board can be regenerated.
 

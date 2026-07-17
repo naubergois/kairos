@@ -78,6 +78,15 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ decision: "reprovado", comment, approver: "product_owner" }),
       }),
+    remove: (id: string, cascade = true) =>
+      request<{ ok: boolean; deleted: string[] }>(`/cards/${id}?cascade=${cascade}`, {
+        method: "DELETE",
+      }),
+    bulkRemove: (ids: string[], cascade = true) =>
+      request<{ ok: boolean; deleted: string[] }>(`/cards/bulk-delete?cascade=${cascade}`, {
+        method: "POST",
+        body: JSON.stringify({ card_ids: ids }),
+      }),
     reset: (reseedDemo = true) =>
       request<{ ok: boolean; runtimes_stopped: number; reseeded: boolean }>(
         `/cards/reset?reseed_demo=${reseedDemo}`,
@@ -111,6 +120,10 @@ export const api = {
   swarm: {
     missions: () => request<SwarmMission[]>("/swarm/missions"),
     get: (id: string) => request<SwarmMission>(`/swarm/missions/${id}`),
+    stop: (id: string) =>
+      request<SwarmMission>(`/swarm/missions/${id}/stop`, {
+        method: "POST",
+      }),
   },
   tickets: {
     list: () => request<SupportTicket[]>("/tickets"),

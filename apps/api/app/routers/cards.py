@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Body, Query
 
 from app.models.contracts import (
     ApprovalAction,
@@ -28,6 +28,21 @@ async def all_cards(board_id: str | None = Query(default=None)) -> list[TaskCard
 async def reset_board(reseed_demo: bool = Query(default=True)) -> dict:
     """Delete all cards and generated apps, then regenerate a fresh board."""
     return await card_service.reset_board(reseed_demo=reseed_demo)
+
+
+@router.post("/cards/bulk-delete")
+async def bulk_delete_cards(
+    card_ids: list[str] = Body(..., embed=True),
+    cascade: bool = Query(default=True),
+) -> dict:
+    """Delete a set of cards (and, by default, their child cards and generated apps)."""
+    return await card_service.delete_cards(card_ids, cascade=cascade)
+
+
+@router.delete("/cards/{card_id}")
+async def delete_card(card_id: str, cascade: bool = Query(default=True)) -> dict:
+    """Delete a single card (and, by default, its child cards and generated app)."""
+    return await card_service.delete_card(card_id, cascade=cascade)
 
 
 @router.post("/boards/{board_id}/cards")

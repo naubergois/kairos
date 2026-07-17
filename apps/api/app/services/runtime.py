@@ -62,6 +62,15 @@ def stop_all_runtimes() -> int:
     return count
 
 
+def remove_workspace(card_id: str) -> None:
+    """Delete the generated app files for a single card."""
+    import shutil
+
+    path = WORKSPACES / card_id
+    if path.exists():
+        shutil.rmtree(path, ignore_errors=True)
+
+
 def clear_workspaces() -> None:
     """Remove all generated app files so they can be regenerated cleanly."""
     import shutil

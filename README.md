@@ -20,6 +20,10 @@
   <img alt="MVP" src="https://img.shields.io/badge/status-MVP-d8efe9?color=0F6A5A" />
 </p>
 
+<p align="center">
+  <img src="docs/assets/screenshot-kanban.png" alt="Mankiu Kanban board" width="900" />
+</p>
+
 ---
 
 # English
@@ -83,6 +87,26 @@ LangGraph   Swarm
 | `/agents` | Agent catalog | Activate/deactivate agents, roles, models |
 | `/projects` | Projects | Lightweight project / board administration |
 
+<p align="center">
+  <img src="docs/assets/screenshot-dashboard.png" alt="Executive dashboard" width="880" />
+</p>
+<p align="center"><em>Dashboard — builds, blockers, cost, and agent performance</em></p>
+
+<p align="center">
+  <img src="docs/assets/screenshot-portal.png" alt="Manus portal" width="880" />
+</p>
+<p align="center"><em>Portal — natural-language intake into Kanban cards</em></p>
+
+<p align="center">
+  <img src="docs/assets/screenshot-agents.png" alt="Agent catalog" width="880" />
+</p>
+<p align="center"><em>Agents — swarm robot catalog with roles and models</em></p>
+
+<p align="center">
+  <img src="docs/assets/screenshot-card-detail.png" alt="Card detail" width="880" />
+</p>
+<p align="center"><em>Card detail — requirements, plan, artifacts, and history</em></p>
+
 ## Tech stack
 
 - **Frontend:** Vite, React 19, TypeScript, Tailwind CSS, React Router, `@dnd-kit`, Zustand
@@ -97,7 +121,7 @@ Mankiu/
 ├── apps/web/                 # React SPA
 ├── apps/api/                 # FastAPI control plane
 ├── packages/shared/          # Shared TypeScript contracts
-├── docs/assets/              # Brand assets (icon)
+├── docs/assets/              # Brand assets + README screenshots
 ├── docker-compose.yml
 └── README.md
 ```
@@ -216,6 +240,26 @@ MIT — see repository for details.
 | `/agents` | 智能体目录 | 启用/停用、角色、模型 |
 | `/projects` | 项目管理 | 轻量项目 / 看板管理 |
 
+<p align="center">
+  <img src="docs/assets/screenshot-dashboard.png" alt="管理仪表盘" width="880" />
+</p>
+<p align="center"><em>仪表盘 — 执行中任务、阻塞、成本与智能体表现</em></p>
+
+<p align="center">
+  <img src="docs/assets/screenshot-portal.png" alt="Manus 门户" width="880" />
+</p>
+<p align="center"><em>门户 — 自然语言录入并生成看板卡片</em></p>
+
+<p align="center">
+  <img src="docs/assets/screenshot-agents.png" alt="智能体目录" width="880" />
+</p>
+<p align="center"><em>智能体 — 群组机器人目录（角色与模型）</em></p>
+
+<p align="center">
+  <img src="docs/assets/screenshot-card-detail.png" alt="卡片详情" width="880" />
+</p>
+<p align="center"><em>卡片详情 — 需求、计划、产物与历史</em></p>
+
 ## 技术栈
 
 - **前端：** Vite、React 19、TypeScript、Tailwind CSS、React Router、`@dnd-kit`、Zustand
@@ -230,7 +274,7 @@ Mankiu/
 ├── apps/web/                 # React 单页应用
 ├── apps/api/                 # FastAPI 控制面
 ├── packages/shared/          # 共享 TypeScript 契约
-├── docs/assets/              # 品牌资源（图标）
+├── docs/assets/              # 品牌资源 + README 截图
 ├── docker-compose.yml
 └── README.md
 ```
@@ -347,6 +391,26 @@ A plataforma cria o cartão, classifica a demanda, gera requisitos e critérios 
 | `/agents` | Catálogo de agentes | Ativar/desativar, papéis, modelos |
 | `/projects` | Projetos | Administração leve de projetos / quadros |
 
+<p align="center">
+  <img src="docs/assets/screenshot-dashboard.png" alt="Dashboard executivo" width="880" />
+</p>
+<p align="center"><em>Dashboard — execução, bloqueios, custo e desempenho dos agentes</em></p>
+
+<p align="center">
+  <img src="docs/assets/screenshot-portal.png" alt="Portal Manus" width="880" />
+</p>
+<p align="center"><em>Portal — entrada em linguagem natural para cartões no Kanban</em></p>
+
+<p align="center">
+  <img src="docs/assets/screenshot-agents.png" alt="Catálogo de agentes" width="880" />
+</p>
+<p align="center"><em>Agentes — catálogo de robots do enxame com papéis e modelos</em></p>
+
+<p align="center">
+  <img src="docs/assets/screenshot-card-detail.png" alt="Detalhe do cartão" width="880" />
+</p>
+<p align="center"><em>Detalhe do cartão — requisitos, plano, artefatos e histórico</em></p>
+
 ## Stack tecnológica
 
 - **Frontend:** Vite, React 19, TypeScript, Tailwind CSS, React Router, `@dnd-kit`, Zustand
@@ -361,7 +425,7 @@ Mankiu/
 ├── apps/web/                 # SPA React
 ├── apps/api/                 # Plano de controle FastAPI
 ├── packages/shared/          # Contratos TypeScript compartilhados
-├── docs/assets/              # Assets de marca (ícone)
+├── docs/assets/              # Assets de marca + prints do README
 ├── docker-compose.yml
 └── README.md
 ```

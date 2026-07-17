@@ -234,9 +234,12 @@ class LangGraphOrchestrator:
         return {"card": card.model_dump(mode="json")}
 
     async def _run_swarm_safe(self, card_id: str) -> None:
-        try:
-            from app.adapters.ruflo_swarm import ruflo
+        from app.adapters.ruflo_swarm import ruflo
 
+        task = asyncio.current_task()
+        if task:
+            ruflo.register_task(card_id, task)
+        try:
             store = get_store()
             raw = await store.get("task_cards", card_id)
             if not raw:
@@ -244,6 +247,9 @@ class LangGraphOrchestrator:
             card = TaskCard.model_validate(raw)
             await ruflo.create_mission(card)
             await ruflo.execute(card)
+        except asyncio.CancelledError:
+            logger.info("Background swarm stopped for %s", card_id)
+            raise
         except Exception:
             logger.exception("Background swarm failed for %s", card_id)
             try:
@@ -256,6 +262,9 @@ class LangGraphOrchestrator:
                     await store.upsert("task_cards", card)
             except Exception:
                 logger.exception("Failed to mark swarm_error on %s", card_id)
+        finally:
+            if task:
+                ruflo.unregister_task(card_id, task)
 
     async def _audit(
         self,
