@@ -334,7 +334,7 @@ class LangGraphOrchestrator:
         return child_ids
 
     async def start_swarm_after_approval(self, card_id: str) -> TaskCard:
-        """Materialize work cards and start Ruflo in the background after scope approval."""
+        """Materialize work cards and queue the swarm stopped — Start is manual."""
         store = get_store()
         raw = await store.get("task_cards", card_id)
         if not raw:
@@ -348,45 +348,11 @@ class LangGraphOrchestrator:
         await a2a.publish_a2a(
             card,
             "coordenador",
-            "Escopo aprovado. Enxame enfileirado — iniciando design e execução.",
+            "Escopo aprovado. Enxame pronto e parado — clique em Start para iniciar.",
             message_type="status",
             pipeline_step="swarm_queued",
         )
-        asyncio.create_task(self._run_swarm_safe(card.id))
         return card
-
-    async def _run_swarm_safe(self, card_id: str) -> None:
-        from app.adapters.ruflo_swarm import ruflo
-
-        task = asyncio.current_task()
-        if task:
-            ruflo.register_task(card_id, task)
-        try:
-            store = get_store()
-            raw = await store.get("task_cards", card_id)
-            if not raw:
-                return
-            card = TaskCard.model_validate(raw)
-            await ruflo.create_mission(card)
-            await ruflo.execute(card)
-        except asyncio.CancelledError:
-            logger.info("Background swarm stopped for %s", card_id)
-            raise
-        except Exception:
-            logger.exception("Background swarm failed for %s", card_id)
-            try:
-                store = get_store()
-                raw = await store.get("task_cards", card_id)
-                if raw:
-                    card = TaskCard.model_validate(raw)
-                    card.tags = list({*card.tags, "swarm_error"})
-                    card.updated_at = datetime.utcnow()
-                    await store.upsert("task_cards", card)
-            except Exception:
-                logger.exception("Failed to mark swarm_error on %s", card_id)
-        finally:
-            if task:
-                ruflo.unregister_task(card_id, task)
 
     async def _audit(
         self,

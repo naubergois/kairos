@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta
+
 from app.db import get_store
 from app.models.contracts import (
+    AgentAssignment,
+    AgentBoardMessage,
     AgentCatalogItem,
     ExecutionPlan,
     HumanApproval,
@@ -9,6 +13,7 @@ from app.models.contracts import (
     PlanTask,
     Project,
     RequirementSpecification,
+    SwarmMission,
     TaskCard,
 )
 from app.models.enums import (
@@ -577,7 +582,7 @@ async def seed_if_empty() -> dict:
             project_id=project.id,
             board_id=board.id,
             priority=Priority.ALTA,
-            column=KanbanColumn.EM_EXECUCAO,
+            column=KanbanColumn.PRONTO_ENXAME,
             kind="epic",
             tags=["epic", "mini-app", "frontend", "swarm_queued"],
             acceptance_criteria=["Add/complete/delete todos", "Persist locally", "Live preview URL"],
@@ -598,7 +603,7 @@ async def seed_if_empty() -> dict:
             kind="work",
             parent_id="card_seed_1",
             plan_task_id="pt_seed_1_ui",
-            column=KanbanColumn.EM_EXECUCAO,
+            column=KanbanColumn.PRONTO_ENXAME,
             agents=["desenvolvedor"],
             tags=["work", "agent:desenvolvedor", "group:0"],
         ),
@@ -709,6 +714,134 @@ async def seed_if_empty() -> dict:
             completion_criteria=["Add/complete/delete todos", "Persist locally", "Live preview URL"],
         ),
     )
+
+    await store.upsert(
+        "requirements",
+        RequirementSpecification(
+            card_id="card_seed_1",
+            objective="Ship a complete Todo Mini App",
+            context="Users need a fast local todo list with add, complete, delete, and persistence.",
+            functional=[
+                "Add todos with text input",
+                "Mark todos complete/incomplete",
+                "Delete todos",
+                "Persist todos in localStorage",
+            ],
+            non_functional=["Responsive UI", "Loads under 2s"],
+            business_rules=["Todos must not be empty"],
+            constraints=["Single-user local app"],
+            acceptance_criteria=[
+                "Add/complete/delete todos",
+                "Persist locally",
+                "Live preview URL",
+            ],
+        ),
+    )
+
+    await store.upsert(
+        "swarm_missions",
+        SwarmMission(
+            id="mission_seed_1",
+            card_id="card_seed_1",
+            objective="Todo Mini App",
+            topology="hierarchical",
+            status="pending",
+            progress=0.0,
+            agents=[
+                AgentAssignment(
+                    agent_id="coordenador",
+                    role="coordenador",
+                    subtask="Coordinate build",
+                    tools=["swarm"],
+                    status="assigned",
+                ),
+                AgentAssignment(
+                    agent_id="desenvolvedor",
+                    role="desenvolvedor",
+                    subtask="UI",
+                    tools=["git", "editor"],
+                    status="assigned",
+                ),
+                AgentAssignment(
+                    agent_id="testador",
+                    role="testador",
+                    subtask="Deploy preview",
+                    tools=["tests"],
+                    status="assigned",
+                ),
+            ],
+            allowed_tools=["git", "tests", "docs", "review"],
+            limits={"max_agents": 3, "token_budget": 250_000},
+            expected_result="Live Todo mini-app preview",
+        ),
+    )
+
+    now = datetime.utcnow()
+    demo_a2a = [
+        AgentBoardMessage(
+            id="a2a_seed_1",
+            board_id=board.id,
+            card_id="card_seed_1",
+            from_agent_id="planejador",
+            content="Plano pronto: UI, State e Deploy preview em paralelo sequencial.",
+            message_type="status",
+            pipeline_step="plan",
+            created_at=now - timedelta(minutes=18),
+        ),
+        AgentBoardMessage(
+            id="a2a_seed_2",
+            board_id=board.id,
+            card_id="card_seed_1",
+            from_agent_id="coordenador",
+            content="Escopo aprovado. Enxame pronto e parado — clique em Start para iniciar.",
+            message_type="status",
+            pipeline_step="swarm_queued",
+            created_at=now - timedelta(minutes=14),
+        ),
+        AgentBoardMessage(
+            id="a2a_seed_3",
+            board_id=board.id,
+            card_id="card_seed_1",
+            from_agent_id="coordenador",
+            content="Enxame montado (hierarchical): coordenador, desenvolvedor, testador — aguardando Start.",
+            message_type="status",
+            pipeline_step="design_swarm",
+            created_at=now - timedelta(minutes=12),
+        ),
+        AgentBoardMessage(
+            id="a2a_seed_4",
+            board_id=board.id,
+            card_id="card_seed_1",
+            from_agent_id="planejador",
+            to_agent_id="desenvolvedor",
+            content="Cartões de trabalho criados: UI, State, Deploy preview — prontos na coluna do enxame.",
+            message_type="handoff",
+            pipeline_step="materialize_work",
+            created_at=now - timedelta(minutes=10),
+        ),
+        AgentBoardMessage(
+            id="a2a_seed_8",
+            board_id=board.id,
+            card_id="card_seed_4",
+            from_agent_id="requisitos",
+            content="Requisitos do Bookmark Board prontos — aguardando aprovação humana.",
+            message_type="status",
+            pipeline_step="request_approval",
+            created_at=now - timedelta(minutes=25),
+        ),
+        AgentBoardMessage(
+            id="a2a_seed_9",
+            board_id=board.id,
+            card_id="card_seed_2",
+            from_agent_id="chamados",
+            content="Notes Pad bloqueado: aguardando tokens de cor da equipe de design.",
+            message_type="status",
+            pipeline_step="blocked",
+            created_at=now - timedelta(minutes=30),
+        ),
+    ]
+    for message in demo_a2a:
+        await store.upsert("agent_messages", message)
 
     await store.upsert(
         "requirements",

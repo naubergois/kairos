@@ -133,6 +133,28 @@ class RufloSwarmManager:
         if not children:
             return []
 
+        epic_raw = await store.get("task_cards", epic_id)
+        epic = TaskCard.model_validate(epic_raw) if epic_raw else None
+        narrate_columns = {
+            KanbanColumn.EM_EXECUCAO,
+            KanbanColumn.EM_REVISAO,
+            KanbanColumn.EM_TESTES,
+            KanbanColumn.PRONTO_ENTREGA,
+            KanbanColumn.CONCLUIDO,
+        }
+
+        async def _narrate_move(child: TaskCard) -> None:
+            if not epic or column not in narrate_columns:
+                return
+            agent = child.agents[0] if child.agents else "desenvolvedor"
+            await a2a.publish_a2a(
+                epic,
+                agent,
+                f"«{child.title}» em andamento — coluna {column.value.replace('_', ' ')}.",
+                message_type="status",
+                pipeline_step="move_work",
+            )
+
         if by_group:
             groups: dict[int, list[TaskCard]] = {}
             for child in children:
@@ -151,6 +173,7 @@ class RufloSwarmManager:
                     child.updated_at = datetime.utcnow()
                     await store.upsert("task_cards", child)
                     moved.append(child.id)
+                    await _narrate_move(child)
                 if stagger:
                     await asyncio.sleep(_CHILD_MOVE_DELAY_S)
             return moved
@@ -161,6 +184,7 @@ class RufloSwarmManager:
             child.updated_at = datetime.utcnow()
             await store.upsert("task_cards", child)
             moved.append(child.id)
+            await _narrate_move(child)
             if stagger:
                 await asyncio.sleep(_CHILD_MOVE_DELAY_S)
         return moved
@@ -412,6 +436,13 @@ class RufloSwarmManager:
                 logger.exception("Failed to materialize work cards for %s", card.id)
 
         await self._move_children(card.id, KanbanColumn.PRONTO_ENXAME, stagger=False)
+        await a2a.publish_a2a(
+            card,
+            "coordenador",
+            f"Enxame iniciado para «{card.title}» — agentes entrando em ação.",
+            message_type="status",
+            pipeline_step="start_swarm",
+        )
         await self._audit(
             card,
             "start_swarm",
@@ -452,13 +483,95 @@ class RufloSwarmManager:
             if task:
                 self.unregister_task(card_id, task)
 
+    async def _ensure_requirements_and_plan(self, card: TaskCard) -> None:
+        """Generate requirements/plan on demand so seed or manual cards can start the swarm."""
+        store = get_store()
+        reqs = await store.list("requirements", {"card_id": card.id})
+        if not reqs:
+            req_out = await runners.run_requirements(card)
+            spec = RequirementSpecification(
+                card_id=card.id,
+                objective=req_out.objective,
+                context=req_out.context,
+                functional=req_out.functional,
+                non_functional=req_out.non_functional,
+                business_rules=req_out.business_rules,
+                constraints=req_out.constraints,
+                acceptance_criteria=req_out.acceptance_criteria,
+                assumptions=req_out.assumptions,
+                out_of_scope=req_out.out_of_scope,
+                open_questions=req_out.open_questions,
+            )
+            await store.upsert("requirements", spec)
+            await self._audit(card, "autogenerate_requirements", card.column.value, {"spec_id": spec.id})
+            await a2a.publish_a2a(
+                card,
+                "requisitos",
+                f"Requisitos gerados para «{card.title}» — {len(spec.functional)} itens funcionais.",
+                message_type="status",
+                pipeline_step="autogenerate_requirements",
+            )
+            reqs = [spec.model_dump(mode="json")]
+
+        plans = await store.list("execution_plans", {"card_id": card.id})
+        if not plans:
+            spec = RequirementSpecification.model_validate(reqs[-1])
+            req_llm = RequirementsResult(
+                objective=spec.objective,
+                context=spec.context,
+                functional=spec.functional,
+                non_functional=spec.non_functional,
+                business_rules=spec.business_rules,
+                constraints=spec.constraints,
+                acceptance_criteria=spec.acceptance_criteria,
+                assumptions=spec.assumptions,
+                out_of_scope=spec.out_of_scope,
+                open_questions=spec.open_questions,
+            )
+            plan_out = await runners.run_planner(card, req_llm)
+            from app.models.contracts import PlanTask
+
+            tasks = [
+                PlanTask(
+                    title=t.title,
+                    agent_role=t.agent_role,
+                    parallel_group=t.parallel_group,
+                    depends_on=t.depends_on,
+                )
+                for t in plan_out.tasks
+            ] or [
+                PlanTask(title="Scaffold app shell", agent_role="desenvolvedor", parallel_group=0),
+                PlanTask(title="Implement core features", agent_role="desenvolvedor", parallel_group=1),
+                PlanTask(title="Review & harden", agent_role="revisor", parallel_group=2),
+                PlanTask(title="Test & ship preview", agent_role="testador", parallel_group=3),
+            ]
+            plan = ExecutionPlan(
+                card_id=card.id,
+                objective=plan_out.objective,
+                strategy=plan_out.strategy,
+                tasks=tasks,
+                required_agents=plan_out.required_agents,
+                tools=plan_out.tools,
+                risks=plan_out.risks,
+                estimated_effort_hours=plan_out.estimated_effort_hours,
+                completion_criteria=plan_out.completion_criteria or card.acceptance_criteria,
+            )
+            await store.upsert("execution_plans", plan)
+            await self._audit(card, "autogenerate_plan", card.column.value, {"plan_id": plan.id})
+            await a2a.publish_a2a(
+                card,
+                "planejador",
+                f"Plano gerado com {len(tasks)} tarefas para o enxame.",
+                message_type="status",
+                pipeline_step="autogenerate_plan",
+            )
+
     async def execute(self, card: TaskCard) -> TaskCard:
         store = get_store()
+        await self._ensure_requirements_and_plan(card)
         reqs = await store.list("requirements", {"card_id": card.id})
         plans = await store.list("execution_plans", {"card_id": card.id})
         missions = await store.list("swarm_missions", {"card_id": card.id})
-        if not reqs or not plans:
-            raise RuntimeError("Requirements/plan required before swarm execution")
         if not missions:
             await self.create_mission(card)
             missions = await store.list("swarm_missions", {"card_id": card.id})

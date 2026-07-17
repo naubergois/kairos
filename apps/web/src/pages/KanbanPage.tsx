@@ -526,9 +526,7 @@ export function KanbanPage() {
     ? RUNNING_SWARM_STATUSES.includes(activeMission.status)
     : Boolean(
         swarmTargetCard &&
-          ["pronto_enxame", "em_execucao", "em_revisao", "em_testes"].includes(
-            swarmTargetCard.column,
-          ),
+          ["em_execucao", "em_revisao", "em_testes"].includes(swarmTargetCard.column),
       );
   const canStartSwarm = activeMission
     ? !RUNNING_SWARM_STATUSES.includes(activeMission.status)
@@ -586,18 +584,19 @@ export function KanbanPage() {
   }
 
   useEffect(() => {
-    void refreshAll();
+    let cancelled = false;
+    async function tick() {
+      await refreshAll();
+      if (!cancelled) await refreshA2aMessages();
+    }
+    void tick();
     const intervalMs = isBusy ? 900 : 4000;
-    const id = window.setInterval(() => void refreshAll(), intervalMs);
-    return () => window.clearInterval(id);
-  }, [refreshAll, isBusy]);
-
-  useEffect(() => {
-    void refreshA2aMessages();
-    const intervalMs = isBusy ? 900 : 4000;
-    const id = window.setInterval(() => void refreshA2aMessages(), intervalMs);
-    return () => window.clearInterval(id);
-  }, [boardId, isBusy]);
+    const id = window.setInterval(() => void tick(), intervalMs);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [refreshAll, isBusy, boardId]);
 
   useEffect(() => {
     if (!liveApps.length) {

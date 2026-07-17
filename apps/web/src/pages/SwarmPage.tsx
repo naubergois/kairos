@@ -47,9 +47,7 @@ export function SwarmPage() {
     ? RUNNING_STATUSES.includes(selected.status)
     : Boolean(
         swarmTargetCard &&
-          ["pronto_enxame", "em_execucao", "em_revisao", "em_testes"].includes(
-            swarmTargetCard.column,
-          ),
+          ["em_execucao", "em_revisao", "em_testes"].includes(swarmTargetCard.column),
       );
   const canStartSelected = selected
     ? !RUNNING_STATUSES.includes(selected.status)
