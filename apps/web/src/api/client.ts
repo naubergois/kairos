@@ -94,7 +94,7 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ card_ids: ids }),
       }),
-    reset: (reseedDemo = true) =>
+    reset: (reseedDemo = false) =>
       request<{ ok: boolean; runtimes_stopped: number; reseeded: boolean }>(
         `/cards/reset?reseed_demo=${reseedDemo}`,
         { method: "POST" },

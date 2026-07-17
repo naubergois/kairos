@@ -552,7 +552,7 @@ export function KanbanPage() {
   const [swarmBusy, setSwarmBusy] = useState<"start" | "stop" | null>(null);
   const [celebrating, setCelebrating] = useState(false);
   const [approvingId, setApprovingId] = useState<string | null>(null);
-  const [chatOpen, setChatOpen] = useState(true);
+  const [chatOpen, setChatOpen] = useState(false);
   const [a2aMessages, setA2aMessages] = useState<AgentBoardMessage[]>([]);
   const [boardLive, setBoardLive] = useState<BoardLiveState | null>(null);
   const [focusCardId, setFocusCardId] = useState<string | null>(null);
@@ -763,9 +763,9 @@ export function KanbanPage() {
       setSelectedLiveId(null);
       setResetOpen(false);
       setToast(
-        `Board reset — ${res.runtimes_stopped} app(s) stopped${
-          reseedDemo ? " · demo regenerated" : ""
-        }`,
+        reseedDemo
+          ? `Demo seeded — ${res.runtimes_stopped} app(s) stopped`
+          : `Board cleared — ${res.runtimes_stopped} app(s) stopped`,
       );
       await refreshAll();
     } catch (err) {
@@ -940,6 +940,24 @@ export function KanbanPage() {
               Delete selected ({selectedIds.size})
             </Button>
           ) : null}
+          <Button
+            variant="ghost"
+            disabled={resetting}
+            onClick={() => {
+              if (
+                cards.length > 0 &&
+                !window.confirm(
+                  "Load demo will replace the current board with sample mini-apps. Continue?",
+                )
+              ) {
+                return;
+              }
+              void resetBoard(true);
+            }}
+            title="Seed the demo mini-apps (only when you ask)"
+          >
+            {resetting ? "Seeding..." : "Load demo"}
+          </Button>
           <Button variant="danger" onClick={() => setResetOpen(true)}>
             Reset
           </Button>
@@ -1121,7 +1139,8 @@ export function KanbanPage() {
                   Reset board
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  Deletes all cards and stops every generated app. This cannot be undone.
+                  Deletes all cards and stops every generated app. The board stays empty
+                  afterward — use Load demo to seed sample apps. This cannot be undone.
                 </p>
               </div>
               <button
@@ -1134,13 +1153,6 @@ export function KanbanPage() {
             <div className="mt-5 flex flex-col gap-2">
               <Button
                 variant="danger"
-                disabled={resetting}
-                onClick={() => void resetBoard(true)}
-              >
-                {resetting ? "Resetting..." : "Delete all & regenerate demo"}
-              </Button>
-              <Button
-                variant="ghost"
                 disabled={resetting}
                 onClick={() => void resetBoard(false)}
               >

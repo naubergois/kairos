@@ -170,11 +170,11 @@ async def delete_cards(card_ids: list[str], *, cascade: bool = True) -> dict:
     return {"ok": True, "deleted": deleted}
 
 
-async def reset_board(*, reseed_demo: bool = True) -> dict:
-    """Delete all cards and generated apps so the board can be regenerated.
+async def reset_board(*, reseed_demo: bool = False) -> dict:
+    """Delete all cards and generated apps.
 
     Stops every running mini-app, wipes card-related data and workspaces,
-    and (optionally) re-seeds the fresh demo board.
+    and leaves an empty board unless ``reseed_demo`` is True.
     """
     from app.db import init_store
     from app.services import runtime as runtime_service

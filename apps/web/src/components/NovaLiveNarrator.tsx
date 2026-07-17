@@ -93,6 +93,7 @@ export function NovaLiveNarrator({
   live: BoardLiveState | null;
   onFocusCard?: (cardId: string | null) => void;
 }) {
+  const [open, setOpen] = useState(false);
   const [tickIndex, setTickIndex] = useState(0);
   const mood = MOOD_STYLE[live?.mood ?? "idle"] ?? MOOD_STYLE.idle;
   const recent = live?.recent ?? [];
@@ -106,12 +107,12 @@ export function NovaLiveNarrator({
   const ticker = useMemo(() => recent.slice(0, 8), [recent]);
 
   useEffect(() => {
-    if (ticker.length <= 1) return;
+    if (!open || ticker.length <= 1) return;
     const id = window.setInterval(() => {
       setTickIndex((i) => (i + 1) % ticker.length);
     }, 3200);
     return () => window.clearInterval(id);
-  }, [ticker.length]);
+  }, [open, ticker.length]);
 
   useEffect(() => {
     setTickIndex(0);
@@ -122,7 +123,13 @@ export function NovaLiveNarrator({
       className={`nova-narrator shrink-0 overflow-hidden rounded-2xl border border-slate-200/90 bg-gradient-to-r ${mood.bar} shadow-sm`}
       aria-live="polite"
     >
-      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200/60 px-3 py-2">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full flex-wrap items-center gap-2 px-3 py-2 text-left transition hover:bg-white/40"
+        aria-expanded={open}
+        title={open ? "Minimizar gestor de projetos" : "Abrir gestor de projetos"}
+      >
         <div className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-sm text-white shadow agent-working">
             🤖
@@ -131,53 +138,68 @@ export function NovaLiveNarrator({
             <h2 className="text-sm font-extrabold tracking-tight text-slate-900">
               Nova · Gestor de Projetos
             </h2>
-            <p className="text-[10px] font-medium text-slate-500">
-              Narra e gerencia tudo que acontece no board
-            </p>
+            {!open ? (
+              <p className="max-w-md truncate text-[10px] font-medium text-slate-500">
+                {speakText}
+              </p>
+            ) : (
+              <p className="text-[10px] font-medium text-slate-500">
+                Narra e gerencia tudo que acontece no board
+              </p>
+            )}
           </div>
         </div>
         <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${mood.pill}`}>
           {mood.label}
         </span>
-        <div className="ml-auto flex flex-wrap gap-1">
-          {(live?.lane_counts ?? []).map((lane) => (
-            <span
-              key={lane.id}
-              className="rounded-md bg-white/80 px-1.5 py-0.5 text-[10px] font-bold text-slate-600 shadow-sm"
-            >
-              {lane.label} {lane.count}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-2 px-3 py-2.5 sm:flex-row sm:items-stretch">
-        <SpeakBubble agentId={speakAgent} text={speakText} pulse={live?.mood === "busy"} />
-        <div className="flex w-full shrink-0 flex-col justify-between gap-1.5 sm:w-56 lg:w-64">
-          <p className="text-[11px] leading-relaxed text-slate-600">{live?.briefing ?? "Carregando briefing…"}</p>
-          {live?.focus_card_id ? (
-            <button
-              type="button"
-              onClick={() => onFocusCard?.(live.focus_card_id)}
-              className="rounded-lg border border-blue-200 bg-blue-50 px-2 py-1.5 text-left text-[11px] font-bold text-blue-700 transition hover:border-blue-400 hover:bg-blue-100"
-            >
-              Foco → {live.focus_card_title ?? live.focus_card_id}
-            </button>
-          ) : null}
-        </div>
-      </div>
-
-      {ticker.length ? (
-        <div className="nova-ticker-track flex gap-2 overflow-hidden border-t border-slate-200/60 bg-white/40 px-3 py-2">
-          <div
-            key={ticker[tickIndex % ticker.length]?.id ?? tickIndex}
-            className="nova-ticker-slide flex gap-2"
-          >
-            {ticker.map((msg) => (
-              <TickItem key={msg.id} msg={msg} />
+        {open ? (
+          <div className="flex flex-wrap gap-1">
+            {(live?.lane_counts ?? []).map((lane) => (
+              <span
+                key={lane.id}
+                className="rounded-md bg-white/80 px-1.5 py-0.5 text-[10px] font-bold text-slate-600 shadow-sm"
+              >
+                {lane.label} {lane.count}
+              </span>
             ))}
           </div>
-        </div>
+        ) : null}
+        <span className="ml-auto rounded-lg px-2 py-1 text-xs font-bold text-slate-500">
+          {open ? "▾" : "▸"}
+        </span>
+      </button>
+
+      {open ? (
+        <>
+          <div className="flex flex-col gap-2 border-t border-slate-200/60 px-3 py-2.5 sm:flex-row sm:items-stretch">
+            <SpeakBubble agentId={speakAgent} text={speakText} pulse={live?.mood === "busy"} />
+            <div className="flex w-full shrink-0 flex-col justify-between gap-1.5 sm:w-56 lg:w-64">
+              <p className="text-[11px] leading-relaxed text-slate-600">{live?.briefing ?? "Carregando briefing…"}</p>
+              {live?.focus_card_id ? (
+                <button
+                  type="button"
+                  onClick={() => onFocusCard?.(live.focus_card_id)}
+                  className="rounded-lg border border-blue-200 bg-blue-50 px-2 py-1.5 text-left text-[11px] font-bold text-blue-700 transition hover:border-blue-400 hover:bg-blue-100"
+                >
+                  Foco → {live.focus_card_title ?? live.focus_card_id}
+                </button>
+              ) : null}
+            </div>
+          </div>
+
+          {ticker.length ? (
+            <div className="nova-ticker-track flex gap-2 overflow-hidden border-t border-slate-200/60 bg-white/40 px-3 py-2">
+              <div
+                key={ticker[tickIndex % ticker.length]?.id ?? tickIndex}
+                className="nova-ticker-slide flex gap-2"
+              >
+                {ticker.map((msg) => (
+                  <TickItem key={msg.id} msg={msg} />
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </>
       ) : null}
     </section>
   );

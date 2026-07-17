@@ -25,8 +25,8 @@ async def all_cards(board_id: str | None = Query(default=None)) -> list[TaskCard
 
 
 @router.post("/cards/reset")
-async def reset_board(reseed_demo: bool = Query(default=True)) -> dict:
-    """Delete all cards and generated apps, then regenerate a fresh board."""
+async def reset_board(reseed_demo: bool = Query(default=False)) -> dict:
+    """Delete all cards and generated apps. Optionally re-seed the demo board."""
     return await card_service.reset_board(reseed_demo=reseed_demo)
 
 
