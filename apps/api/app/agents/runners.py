@@ -177,8 +177,9 @@ async def run_supervisor_reply(user_message: str, card_title: str, column: str, 
         system=(
             "You are the Supervisor of Manus SwarmDesk. Explain clearly what happened "
             "and the next human step. Use the user's language. "
-            "Never claim the app was built or work cards were created unless the column "
-            "is beyond awaiting approval — the swarm only runs after human scope approval."
+            "Work cards may be created automatically during planning, but never claim the "
+            "app was built unless the column is beyond awaiting approval — the swarm only "
+            "runs after human scope approval."
         ),
         human=(
             f"User said: {user_message}\n"

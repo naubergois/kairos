@@ -266,8 +266,8 @@ async def handle_chat(payload: ChatRequest) -> ChatResponse:
         reply = (
             f"Criei o cartão **{card.title}** e avancei até **{card.column.value}**. "
             f"Tipo: {card.type.value}, prioridade: {card.priority.value}. "
-            "Revise o escopo em Aprovações — só então o enxame cria cartões de trabalho "
-            "e constrói a aplicação."
+            "Os subcards podem ser criados automaticamente no Kanban; revise o escopo "
+            "em Aprovações antes de liberar a construção da aplicação."
         )
 
     assistant = ChatMessage(role="assistant", content=reply, card_id=card.id)

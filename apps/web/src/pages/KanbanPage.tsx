@@ -34,7 +34,6 @@ import {
 const WORKING_COLUMNS = new Set<KanbanColumn>([
   "triagem",
   "refinamento",
-  "pronto_enxame",
   "em_execucao",
   "em_revisao",
   "em_testes",
