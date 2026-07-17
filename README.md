@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="docs/assets/manus-swarmdesk-icon.png" alt="Manus SwarmDesk icon" width="128" height="128" />
+  <img src="docs/assets/kairos-icon.png" alt="Kairos icon" width="128" height="128" />
 </p>
 
-<h1 align="center">Manus SwarmDesk</h1>
+<h1 align="center">Kairos</h1>
 
 <p align="center">
   <strong>Multi-agent platform for autonomous software delivery, driven by an intelligent Kanban.</strong>
@@ -21,20 +21,20 @@
 </p>
 
 <p align="center">
-  <img src="docs/assets/screenshot-kanban.png" alt="Mankiu Kanban board" width="900" />
+  <img src="docs/assets/screenshot-kanban.png" alt="Kairos Kanban board" width="900" />
 </p>
 
 ---
 
 # English
 
-## What is Manus SwarmDesk?
+## What is Kairos?
 
-**Manus SwarmDesk** is a multi-agent software delivery platform. You describe a need in natural language; the system turns it into a Kanban card, refines requirements, asks for human approval, and coordinates a swarm of specialized agents to analyze, plan, implement, review, test, and document the solution.
+**Kairos** is a multi-agent software delivery platform. You describe a need in natural language; the system turns it into a Kanban card, refines requirements, asks for human approval, and coordinates a swarm of specialized agents to analyze, plan, implement, review, test, and document the solution.
 
 It combines:
 
-- an intelligent assistant (Manus-style portal)
+- an intelligent assistant (Kairos-style portal)
 - an autonomous software factory
 - a visual Kanban task manager
 - an agent orchestrator
@@ -80,7 +80,7 @@ LangGraph   Swarm
 | `/` | Executive dashboard | Running work, blockers, deliveries, cost/tokens, agent performance |
 | `/kanban` | Smart Kanban | 13 columns, drag-and-drop, filters, create tasks |
 | `/cards/:id` | Card detail | Requirements, plan, agents, artifacts, tests, tickets, history |
-| `/portal` | Manus portal | Natural-language intake → card creation |
+| `/portal` | Kairos portal | Natural-language intake → card creation |
 | `/swarm` | Swarm center | Topology, assignments, progress, errors |
 | `/approvals` | Approvals | Scope and delivery human decisions |
 | `/tickets` | Tickets | Blockers and support items linked to cards |
@@ -93,7 +93,7 @@ LangGraph   Swarm
 <p align="center"><em>Dashboard — builds, blockers, cost, and agent performance</em></p>
 
 <p align="center">
-  <img src="docs/assets/screenshot-portal.png" alt="Manus portal" width="880" />
+  <img src="docs/assets/screenshot-portal.png" alt="Kairos portal" width="880" />
 </p>
 <p align="center"><em>Portal — natural-language intake into Kanban cards</em></p>
 
@@ -117,7 +117,7 @@ LangGraph   Swarm
 ## Repository structure
 
 ```text
-Mankiu/
+kairos/
 ├── apps/web/                 # React SPA
 ├── apps/api/                 # FastAPI control plane
 ├── packages/shared/          # Shared TypeScript contracts
@@ -197,13 +197,13 @@ MIT — see repository for details.
 
 # 中文
 
-## Manus SwarmDesk 是什么？
+## Kairos 是什么？
 
-**Manus SwarmDesk** 是一个面向软件交付的多智能体平台。你用自然语言描述需求，系统会自动创建看板卡片、完善需求、请求人工审批，并协调一组专业智能体完成分析、规划、实现、评审、测试与文档编写。
+**Kairos** 是一个面向软件交付的多智能体平台。你用自然语言描述需求，系统会自动创建看板卡片、完善需求、请求人工审批，并协调一组专业智能体完成分析、规划、实现、评审、测试与文档编写。
 
 它融合了：
 
-- 智能助手门户（类似 Manus）
+- 智能助手门户（类似 Kairos）
 - 自主软件工厂
 - 可视化看板任务管理
 - 智能体编排器
@@ -233,7 +233,7 @@ MIT — see repository for details.
 | `/` | 管理仪表盘 | 执行中任务、阻塞、交付、成本/Token、智能体表现 |
 | `/kanban` | 智能看板 | 13 列、拖拽、筛选、创建任务 |
 | `/cards/:id` | 卡片详情 | 需求、计划、智能体、产物、测试、工单、历史 |
-| `/portal` | Manus 门户 | 自然语言录入 → 创建卡片 |
+| `/portal` | Kairos 门户 | 自然语言录入 → 创建卡片 |
 | `/swarm` | 群组中心 | 拓扑、任务分配、进度、错误 |
 | `/approvals` | 审批中心 | 范围与交付的人工决策 |
 | `/tickets` | 工单中心 | 与卡片关联的阻塞与支持事项 |
@@ -246,7 +246,7 @@ MIT — see repository for details.
 <p align="center"><em>仪表盘 — 执行中任务、阻塞、成本与智能体表现</em></p>
 
 <p align="center">
-  <img src="docs/assets/screenshot-portal.png" alt="Manus 门户" width="880" />
+  <img src="docs/assets/screenshot-portal.png" alt="Kairos 门户" width="880" />
 </p>
 <p align="center"><em>门户 — 自然语言录入并生成看板卡片</em></p>
 
@@ -270,7 +270,7 @@ MIT — see repository for details.
 ## 仓库结构
 
 ```text
-Mankiu/
+kairos/
 ├── apps/web/                 # React 单页应用
 ├── apps/api/                 # FastAPI 控制面
 ├── packages/shared/          # 共享 TypeScript 契约
@@ -348,13 +348,13 @@ MIT
 
 # Português
 
-## O que é o Manus SwarmDesk?
+## O que é o Kairos?
 
-O **Manus SwarmDesk** é uma plataforma multiagente para entrega autônoma de software. Você descreve uma necessidade em linguagem natural; o sistema transforma isso em cartão de Kanban, refina requisitos, pede aprovação humana e coordena um enxame de agentes especializados para analisar, planejar, implementar, revisar, testar e documentar a solução.
+O **Kairos** é uma plataforma multiagente para entrega autônoma de software. Você descreve uma necessidade em linguagem natural; o sistema transforma isso em cartão de Kanban, refina requisitos, pede aprovação humana e coordena um enxame de agentes especializados para analisar, planejar, implementar, revisar, testar e documentar a solução.
 
 Ele combina:
 
-- assistente inteligente (portal no estilo Manus)
+- assistente inteligente (portal no estilo Kairos)
 - fábrica autônoma de software
 - gerenciador visual de tarefas (Kanban)
 - orquestrador de agentes
@@ -384,7 +384,7 @@ A plataforma cria o cartão, classifica a demanda, gera requisitos e critérios 
 | `/` | Dashboard executivo | Execução, bloqueios, entregas, custo/tokens, desempenho |
 | `/kanban` | Kanban inteligente | 13 colunas, drag-and-drop, filtros, criação de tarefas |
 | `/cards/:id` | Detalhe do cartão | Requisitos, plano, agentes, artefatos, testes, tickets, histórico |
-| `/portal` | Portal Manus | Entrada em linguagem natural → criação de cartão |
+| `/portal` | Portal Kairos | Entrada em linguagem natural → criação de cartão |
 | `/swarm` | Central do enxame | Topologia, atribuições, progresso, erros |
 | `/approvals` | Aprovações | Decisões humanas de escopo e entrega |
 | `/tickets` | Chamados | Bloqueios e suporte vinculados a cartões |
@@ -397,7 +397,7 @@ A plataforma cria o cartão, classifica a demanda, gera requisitos e critérios 
 <p align="center"><em>Dashboard — execução, bloqueios, custo e desempenho dos agentes</em></p>
 
 <p align="center">
-  <img src="docs/assets/screenshot-portal.png" alt="Portal Manus" width="880" />
+  <img src="docs/assets/screenshot-portal.png" alt="Portal Kairos" width="880" />
 </p>
 <p align="center"><em>Portal — entrada em linguagem natural para cartões no Kanban</em></p>
 
@@ -421,7 +421,7 @@ A plataforma cria o cartão, classifica a demanda, gera requisitos e critérios 
 ## Estrutura do repositório
 
 ```text
-Mankiu/
+kairos/
 ├── apps/web/                 # SPA React
 ├── apps/api/                 # Plano de controle FastAPI
 ├── packages/shared/          # Contratos TypeScript compartilhados
@@ -498,7 +498,7 @@ MIT
 ---
 
 <p align="center">
-  <img src="docs/assets/manus-swarmdesk-icon.png" alt="Manus SwarmDesk" width="64" height="64" />
+  <img src="docs/assets/kairos-icon.png" alt="Kairos" width="64" height="64" />
   <br />
-  <sub>Manus SwarmDesk — human control, multi-agent execution, auditable Kanban.</sub>
+  <sub>Kairos — human control, multi-agent execution, auditable Kanban.</sub>
 </p>
