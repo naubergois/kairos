@@ -134,6 +134,16 @@ class WorkArtifact(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class WorkspaceFile(BaseModel):
+    """A source file generated for a card's mini-app workspace."""
+
+    path: str
+    size: int = 0
+    language: str | None = None
+    content: str | None = None
+    truncated: bool = False
+
+
 class TestFailure(BaseModel):
     name: str
     message: str
@@ -335,6 +345,7 @@ class CardDetail(BaseModel):
     plan: ExecutionPlan | None = None
     mission: SwarmMission | None = None
     artifacts: list[WorkArtifact] = Field(default_factory=list)
+    files: list[WorkspaceFile] = Field(default_factory=list)
     tests: list[TestResult] = Field(default_factory=list)
     reviews: list[ReviewDecision] = Field(default_factory=list)
     tickets: list[SupportTicket] = Field(default_factory=list)

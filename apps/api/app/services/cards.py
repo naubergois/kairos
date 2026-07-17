@@ -70,7 +70,13 @@ async def get_card_detail(card_id: str) -> CardDetail:
         SwarmMission,
         TestResult,
         WorkArtifact,
+        WorkspaceFile,
     )
+    from app.services.runtime import list_workspace_files
+
+    workspace_files = [
+        WorkspaceFile.model_validate(row) for row in list_workspace_files(card_id)
+    ]
 
     return CardDetail(
         card=card,
@@ -78,6 +84,7 @@ async def get_card_detail(card_id: str) -> CardDetail:
         plan=ExecutionPlan.model_validate(first(plans)) if plans else None,
         mission=SwarmMission.model_validate(first(missions)) if missions else None,
         artifacts=[WorkArtifact.model_validate(a) for a in artifacts],
+        files=workspace_files,
         tests=[TestResult.model_validate(t) for t in tests],
         reviews=[ReviewDecision.model_validate(r) for r in reviews],
         tickets=[SupportTicket.model_validate(t) for t in tickets],

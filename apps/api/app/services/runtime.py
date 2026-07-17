@@ -232,3 +232,85 @@ def runtime_info(card_id: str) -> dict | None:
         "kind": item.kind,
         "status": "running" if alive else "stopped",
     }
+
+
+_TEXT_EXTENSIONS = {
+    ".html",
+    ".htm",
+    ".css",
+    ".js",
+    ".jsx",
+    ".ts",
+    ".tsx",
+    ".json",
+    ".md",
+    ".txt",
+    ".py",
+    ".toml",
+    ".yml",
+    ".yaml",
+    ".svg",
+    ".xml",
+    ".csv",
+    ".env",
+    ".gitignore",
+}
+_LANGUAGE_BY_EXT = {
+    ".html": "html",
+    ".htm": "html",
+    ".css": "css",
+    ".js": "javascript",
+    ".jsx": "javascript",
+    ".ts": "typescript",
+    ".tsx": "typescript",
+    ".json": "json",
+    ".md": "markdown",
+    ".py": "python",
+    ".toml": "toml",
+    ".yml": "yaml",
+    ".yaml": "yaml",
+    ".svg": "xml",
+    ".xml": "xml",
+}
+_MAX_FILE_BYTES = 200_000
+
+
+def list_workspace_files(card_id: str, *, include_content: bool = True) -> list[dict]:
+    """List generated source files for a card workspace (safe relative paths only)."""
+    root = WORKSPACES / card_id
+    if not root.exists() or not root.is_dir():
+        return []
+
+    files: list[dict] = []
+    for path in sorted(root.rglob("*")):
+        if not path.is_file():
+            continue
+        try:
+            relative = path.relative_to(root)
+        except ValueError:
+            continue
+        if ".." in relative.parts:
+            continue
+        size = path.stat().st_size
+        ext = path.suffix.lower()
+        entry: dict = {
+            "path": relative.as_posix(),
+            "size": size,
+            "language": _LANGUAGE_BY_EXT.get(ext),
+            "content": None,
+            "truncated": False,
+        }
+        if include_content and ext in _TEXT_EXTENSIONS and size <= _MAX_FILE_BYTES:
+            try:
+                entry["content"] = path.read_text(encoding="utf-8")
+            except UnicodeDecodeError:
+                entry["content"] = None
+        elif include_content and ext in _TEXT_EXTENSIONS and size > _MAX_FILE_BYTES:
+            entry["truncated"] = True
+            try:
+                raw = path.read_bytes()[:_MAX_FILE_BYTES]
+                entry["content"] = raw.decode("utf-8", errors="replace") + "\n\n… truncated …"
+            except Exception:
+                entry["content"] = None
+        files.append(entry)
+    return files

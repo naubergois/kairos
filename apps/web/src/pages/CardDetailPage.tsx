@@ -1,15 +1,16 @@
-import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import { Badge, Button, EmptyState, Panel, priorityTone } from "../components/ui";
 import { useAppStore } from "../store";
-import { COLUMN_LABELS, type CardDetail } from "../types";
+import { COLUMN_LABELS, type CardDetail, type WorkspaceFile } from "../types";
 
 const tabs = [
   "descricao",
   "requisitos",
   "plano",
   "agentes",
+  "arquivos",
   "artefatos",
   "testes",
   "tickets",
@@ -19,18 +20,31 @@ const tabs = [
 
 type Tab = (typeof tabs)[number];
 
+function formatBytes(size: number): string {
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export function CardDetailPage() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { setToast, refreshAll } = useAppStore();
   const [detail, setDetail] = useState<CardDetail | null>(null);
-  const [tab, setTab] = useState<Tab>("descricao");
+  const initialTab = (searchParams.get("tab") as Tab | null) ?? "descricao";
+  const [tab, setTab] = useState<Tab>(tabs.includes(initialTab) ? initialTab : "descricao");
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<string | null>(null);
 
   async function load() {
     const data = await api.cards.get(id);
     setDetail(data);
+    setSelectedFile((prev) => {
+      if (prev && data.files.some((f) => f.path === prev)) return prev;
+      return data.files[0]?.path ?? null;
+    });
   }
 
   useEffect(() => {
@@ -40,6 +54,13 @@ export function CardDetailPage() {
     const timer = window.setInterval(() => void load(), 5000);
     return () => window.clearInterval(timer);
   }, [id]);
+
+  function openTab(next: Tab) {
+    setTab(next);
+    const params = new URLSearchParams(searchParams);
+    params.set("tab", next);
+    setSearchParams(params, { replace: true });
+  }
 
   async function deleteCard() {
     setBusy(true);
@@ -74,9 +95,18 @@ export function CardDetailPage() {
     return <EmptyState title="Loading card" body="Fetching requirements, plan, and evidence..." />;
   }
 
-  const { card, requirements, plan, mission, artifacts, tests, reviews, tickets, approvals, timeline } =
+  const { card, requirements, plan, mission, artifacts, files, tests, reviews, tickets, approvals, timeline } =
     detail;
   const pending = approvals.filter((a) => a.decision === "pendente");
+  const activeFile = files.find((f) => f.path === selectedFile) ?? files[0] ?? null;
+  const reqCounts = requirements
+    ? [
+        requirements.functional.length,
+        requirements.non_functional.length,
+        requirements.business_rules.length,
+        requirements.acceptance_criteria.length,
+      ].reduce((a, b) => a + b, 0)
+    : 0;
 
   return (
     <div className="space-y-5">
@@ -92,6 +122,16 @@ export function CardDetailPage() {
             <Badge>{card.type}</Badge>
             <Badge tone="accent">autonomy {card.autonomy_level}</Badge>
             {card.preview_url ? <Badge tone="success">Live preview</Badge> : null}
+            {requirements ? (
+              <button type="button" onClick={() => openTab("requisitos")}>
+                <Badge tone="info">{reqCounts} requisitos</Badge>
+              </button>
+            ) : null}
+            {files.length ? (
+              <button type="button" onClick={() => openTab("arquivos")}>
+                <Badge tone="success">{files.length} arquivos</Badge>
+              </button>
+            ) : null}
           </div>
         </div>
         <div className="flex gap-2">
@@ -143,7 +183,7 @@ export function CardDetailPage() {
         {tabs.map((item) => (
           <button
             key={item}
-            onClick={() => setTab(item)}
+            onClick={() => openTab(item)}
             className={`rounded-full px-4 py-2 text-sm font-semibold capitalize ${
               tab === item
                 ? "bg-[var(--accent)] text-white"
@@ -151,6 +191,8 @@ export function CardDetailPage() {
             }`}
           >
             {item}
+            {item === "requisitos" && requirements ? ` (${reqCounts})` : ""}
+            {item === "arquivos" && files.length ? ` (${files.length})` : ""}
           </button>
         ))}
       </div>
@@ -202,6 +244,31 @@ export function CardDetailPage() {
               ))}
             </ul>
           </div>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => openTab("requisitos")}
+              className="rounded-2xl border border-[var(--line)] bg-white/70 px-4 py-4 text-left transition hover:border-violet-300 hover:bg-violet-50/40"
+            >
+              <div className="text-xs font-bold uppercase tracking-wide text-violet-600">Requisitos</div>
+              <div className="mt-1 text-2xl font-extrabold">{reqCounts}</div>
+              <p className="mt-1 text-sm text-[var(--muted)]">
+                {requirements ? "Ver especificação completa" : "Ainda não refinados"}
+              </p>
+            </button>
+            <button
+              type="button"
+              onClick={() => openTab("arquivos")}
+              className="rounded-2xl border border-[var(--line)] bg-white/70 px-4 py-4 text-left transition hover:border-emerald-300 hover:bg-emerald-50/40"
+            >
+              <div className="text-xs font-bold uppercase tracking-wide text-emerald-700">Arquivos criados</div>
+              <div className="mt-1 text-2xl font-extrabold">{files.length}</div>
+              <p className="mt-1 text-sm text-[var(--muted)]">
+                {files.length ? files.map((f) => f.path).slice(0, 3).join(", ") : "Nenhum gerado ainda"}
+                {files.length > 3 ? ` +${files.length - 3}` : ""}
+              </p>
+            </button>
+          </div>
         </Panel>
       )}
 
@@ -210,14 +277,26 @@ export function CardDetailPage() {
           {!requirements ? (
             <EmptyState title="Sem requisitos" body="Ainda não refinados." />
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-5">
               <p>
                 <strong>Objetivo:</strong> {requirements.objective}
               </p>
+              {requirements.context ? (
+                <div>
+                  <h3 className="font-semibold">Contexto</h3>
+                  <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
+                    {requirements.context}
+                  </p>
+                </div>
+              ) : null}
               <List title="Funcionais" items={requirements.functional} />
               <List title="Não funcionais" items={requirements.non_functional} />
               <List title="Regras de negócio" items={requirements.business_rules} />
+              <List title="Restrições" items={requirements.constraints} />
+              <List title="Critérios de aceitação" items={requirements.acceptance_criteria} />
+              <List title="Premissas" items={requirements.assumptions} />
               <List title="Fora de escopo" items={requirements.out_of_scope} />
+              <List title="Perguntas em aberto" items={requirements.open_questions} />
             </div>
           )}
         </Panel>
@@ -277,6 +356,23 @@ export function CardDetailPage() {
                 </div>
               ))}
             </div>
+          )}
+        </Panel>
+      )}
+
+      {tab === "arquivos" && (
+        <Panel title="Arquivos criados">
+          {!files.length ? (
+            <EmptyState
+              title="Sem arquivos"
+              body="O workspace do mini-app ainda não foi gerado. Após a implementação, os fontes aparecem aqui."
+            />
+          ) : (
+            <FileBrowser
+              files={files}
+              active={activeFile}
+              onSelect={setSelectedFile}
+            />
           )}
         </Panel>
       )}
@@ -410,6 +506,80 @@ export function CardDetailPage() {
   );
 }
 
+function FileBrowser({
+  files,
+  active,
+  onSelect,
+}: {
+  files: WorkspaceFile[];
+  active: WorkspaceFile | null;
+  onSelect: (path: string) => void;
+}) {
+  const totalBytes = useMemo(() => files.reduce((sum, f) => sum + f.size, 0), [files]);
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-[var(--line)]">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--line)] bg-slate-50/80 px-4 py-2.5">
+        <div className="text-sm font-semibold text-slate-700">
+          {files.length} arquivo{files.length === 1 ? "" : "s"} · {formatBytes(totalBytes)}
+        </div>
+        {active?.truncated ? (
+          <Badge tone="warn">conteúdo truncado</Badge>
+        ) : null}
+      </div>
+      <div className="grid min-h-[320px] lg:grid-cols-[240px_1fr]">
+        <aside className="border-b border-[var(--line)] bg-white/80 lg:border-b-0 lg:border-r">
+          <ul className="max-h-[420px] overflow-auto p-2">
+            {files.map((file) => {
+              const selected = active?.path === file.path;
+              return (
+                <li key={file.path}>
+                  <button
+                    type="button"
+                    onClick={() => onSelect(file.path)}
+                    className={`flex w-full items-start justify-between gap-2 rounded-xl px-3 py-2 text-left text-sm transition ${
+                      selected
+                        ? "bg-emerald-50 font-semibold text-emerald-900"
+                        : "text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    <span className="min-w-0 break-all font-mono text-[12px]">{file.path}</span>
+                    <span className="shrink-0 text-[10px] font-medium text-slate-400">
+                      {formatBytes(file.size)}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </aside>
+        <div className="min-w-0 bg-[#0f172a]">
+          {active ? (
+            <>
+              <div className="flex flex-wrap items-center gap-2 border-b border-white/10 px-4 py-2 text-xs text-slate-300">
+                <span className="font-mono font-semibold text-white">{active.path}</span>
+                {active.language ? <Badge tone="info">{active.language}</Badge> : null}
+                <span>{formatBytes(active.size)}</span>
+              </div>
+              {active.content != null ? (
+                <pre className="max-h-[520px] overflow-auto p-4 text-[12px] leading-relaxed text-emerald-100">
+                  <code>{active.content}</code>
+                </pre>
+              ) : (
+                <div className="p-6 text-sm text-slate-400">
+                  Conteúdo binário ou indisponível para visualização.
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="p-6 text-sm text-slate-400">Selecione um arquivo.</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Meta({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-2xl border border-[var(--line)] bg-white/60 px-4 py-3">
@@ -420,9 +590,13 @@ function Meta({ label, value }: { label: string; value: string }) {
 }
 
 function List({ title, items }: { title: string; items: string[] }) {
+  if (!items.length) return null;
   return (
     <div>
-      <h3 className="font-semibold">{title}</h3>
+      <h3 className="font-semibold">
+        {title}{" "}
+        <span className="text-xs font-medium text-[var(--muted)]">({items.length})</span>
+      </h3>
       <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
         {items.map((item) => (
           <li key={item}>{item}</li>

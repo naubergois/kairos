@@ -139,6 +139,14 @@ export interface WorkArtifact {
   created_at: string;
 }
 
+export interface WorkspaceFile {
+  path: string;
+  size: number;
+  language: string | null;
+  content: string | null;
+  truncated: boolean;
+}
+
 export interface TestResult {
   id: string;
   card_id: string;
@@ -260,6 +268,7 @@ export interface CardDetail {
   plan: ExecutionPlan | null;
   mission: SwarmMission | null;
   artifacts: WorkArtifact[];
+  files: WorkspaceFile[];
   tests: TestResult[];
   reviews: ReviewDecision[];
   tickets: SupportTicket[];

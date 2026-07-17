@@ -108,16 +108,20 @@ function DroppableLane({
   allCards,
   selectedIds,
   celebrating,
+  approvingId,
   onToggleSelect,
   onDelete,
+  onApprove,
 }: {
   lane: BoardLane;
   cards: TaskCard[];
   allCards: TaskCard[];
   selectedIds: Set<string>;
   celebrating: boolean;
+  approvingId: string | null;
   onToggleSelect: (id: string) => void;
   onDelete: (card: TaskCard) => void;
+  onApprove: (card: TaskCard) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: lane.id });
   return (
@@ -144,8 +148,10 @@ function DroppableLane({
             allCards={allCards}
             selected={selectedIds.has(card.id)}
             celebrating={celebrating}
+            approving={approvingId === card.id}
             onToggleSelect={onToggleSelect}
             onDelete={onDelete}
+            onApprove={onApprove}
           />
         ))}
       </div>
@@ -158,15 +164,19 @@ function DraggableCard({
   allCards,
   selected,
   celebrating,
+  approving,
   onToggleSelect,
   onDelete,
+  onApprove,
 }: {
   card: TaskCard;
   allCards: TaskCard[];
   selected: boolean;
   celebrating: boolean;
+  approving: boolean;
   onToggleSelect: (id: string) => void;
   onDelete: (card: TaskCard) => void;
+  onApprove: (card: TaskCard) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: card.id,
@@ -182,8 +192,10 @@ function DraggableCard({
         allCards={allCards}
         selected={selected}
         celebrating={celebrating}
+        approving={approving}
         onToggleSelect={onToggleSelect}
         onDelete={onDelete}
+        onApprove={onApprove}
       />
     </div>
   );
@@ -195,16 +207,20 @@ function CardBody({
   compact = false,
   selected = false,
   celebrating = false,
+  approving = false,
   onToggleSelect,
   onDelete,
+  onApprove,
 }: {
   card: TaskCard;
   allCards?: TaskCard[];
   compact?: boolean;
   selected?: boolean;
   celebrating?: boolean;
+  approving?: boolean;
   onToggleSelect?: (id: string) => void;
   onDelete?: (card: TaskCard) => void;
+  onApprove?: (card: TaskCard) => void;
 }) {
   const working = WORKING_COLUMNS.has(card.column);
   const kind = card.kind ?? (card.parent_id ? "work" : "epic");
@@ -221,6 +237,9 @@ function CardBody({
       : [];
   const agents = card.agents.length ? card.agents : working ? ["desenvolvedor"] : [];
   const visibleTags = card.tags.filter((t) => t !== "epic" && t !== "work").slice(0, 2);
+  const canApprove =
+    Boolean(onApprove) &&
+    (card.column === "aguardando_aprovacao" || card.column === "pronto_entrega");
 
   return (
     <div
@@ -393,6 +412,47 @@ function CardBody({
         ) : null}
         {card.block_reason ? <Badge tone="danger">Blocked</Badge> : null}
       </div>
+      <div className="mt-2 flex flex-wrap gap-1.5 border-t border-dashed border-slate-200/90 pt-2">
+        <Link
+          to={`/cards/${card.id}?tab=requisitos`}
+          onPointerDown={(e) => e.stopPropagation()}
+          className="rounded-md bg-violet-50 px-1.5 py-0.5 text-[10px] font-bold text-violet-700 hover:bg-violet-100"
+        >
+          Requisitos
+        </Link>
+        <Link
+          to={`/cards/${card.id}?tab=arquivos`}
+          onPointerDown={(e) => e.stopPropagation()}
+          className="rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 hover:bg-emerald-100"
+        >
+          Arquivos
+        </Link>
+      </div>
+
+      {canApprove ? (
+        <div className="mt-2.5 border-t border-dashed border-amber-200/90 pt-2.5">
+          <Button
+            className="!w-full !rounded-lg !px-2.5 !py-1.5 text-[11px]"
+            disabled={approving}
+            title={
+              card.column === "pronto_entrega"
+                ? "Approve delivery and mark done"
+                : "Approve scope and release for implementation"
+            }
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              onApprove?.(card);
+            }}
+          >
+            {approving
+              ? "Approving..."
+              : card.column === "pronto_entrega"
+                ? "Approve delivery"
+                : "Approve → Implement"}
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -479,6 +539,7 @@ export function KanbanPage() {
   const [deleting, setDeleting] = useState(false);
   const [swarmBusy, setSwarmBusy] = useState<"start" | "stop" | null>(null);
   const [celebrating, setCelebrating] = useState(false);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
   const [chatOpen, setChatOpen] = useState(true);
   const [a2aMessages, setA2aMessages] = useState<AgentBoardMessage[]>([]);
   const [chatFilterCardId, setChatFilterCardId] = useState<string | null>(null);
@@ -723,6 +784,25 @@ export function KanbanPage() {
     }
   }
 
+  async function approveCard(card: TaskCard) {
+    setApprovingId(card.id);
+    try {
+      await api.cards.approve(card.id, "Approved from board");
+      setCelebrating(true);
+      playRobotCheer();
+      setToast(
+        card.column === "pronto_entrega"
+          ? "Delivery approved"
+          : "Approved — released for implementation",
+      );
+      await refreshAll();
+    } catch (err) {
+      setToast(err instanceof Error ? err.message : "Approval failed");
+    } finally {
+      setApprovingId(null);
+    }
+  }
+
   async function runSwarmAction(action: "start" | "stop") {
     if (!swarmTargetCard && !activeMission) return;
     if (action === "stop" && !canStopSwarm) return;
@@ -907,8 +987,10 @@ export function KanbanPage() {
                 allCards={cards}
                 selectedIds={selectedIds}
                 celebrating={celebrating}
+                approvingId={approvingId}
                 onToggleSelect={toggleSelect}
                 onDelete={(card) => setDeleteTarget([card])}
+                onApprove={(card) => void approveCard(card)}
               />
             ))}
           </div>
