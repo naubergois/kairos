@@ -5,6 +5,7 @@ from __future__ import annotations
 import socket
 import subprocess
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -27,6 +28,17 @@ class RuntimeProcess:
 _processes: dict[str, RuntimeProcess] = {}
 
 
+def _terminate_process(current: RuntimeProcess) -> None:
+    try:
+        current.process.terminate()
+        current.process.wait(timeout=3)
+    except Exception:
+        try:
+            current.process.kill()
+        except Exception:
+            pass
+
+
 def _free_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.bind(("127.0.0.1", 0))
@@ -43,14 +55,7 @@ def stop_runtime(card_id: str) -> None:
     current = _processes.pop(card_id, None)
     if not current:
         return
-    try:
-        current.process.terminate()
-        current.process.wait(timeout=3)
-    except Exception:
-        try:
-            current.process.kill()
-        except Exception:
-            pass
+    _terminate_process(current)
 
 
 def stop_all_runtimes() -> int:
@@ -149,39 +154,55 @@ def ensure_fallback_app(card: TaskCard, implementation: ImplementationResult) ->
 
 def deploy_app(card: TaskCard, implementation: ImplementationResult) -> TaskCard:
     implementation = ensure_fallback_app(card, implementation)
-    stop_runtime(card.id)
+    previous = _processes.get(card.id)
     root = write_app_files(card.id, implementation.app_files)
     port = _free_port()
     kind = (implementation.app_kind or "static").lower()
 
-    if kind == "fastapi" and (root / "main.py").exists():
-        proc = subprocess.Popen(
-            [
-                sys.executable,
-                "-m",
-                "uvicorn",
-                "main:app",
-                "--host",
-                "127.0.0.1",
-                "--port",
-                str(port),
-            ],
-            cwd=str(root),
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-    else:
-        # static site
+    def start_process(runtime_kind: str, runtime_port: int) -> subprocess.Popen:
+        if runtime_kind == "fastapi" and (root / "main.py").exists():
+            return subprocess.Popen(
+                [
+                    sys.executable,
+                    "-m",
+                    "uvicorn",
+                    "main:app",
+                    "--host",
+                    "127.0.0.1",
+                    "--port",
+                    str(runtime_port),
+                ],
+                cwd=str(root),
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
         if not (root / "index.html").exists() and implementation.app_files:
-            # rename first html-like file
+            # Expose a stable static preview even when the generated runtime kind fails.
             first = implementation.app_files[0]
             (root / "index.html").write_text(first.content, encoding="utf-8")
-        proc = subprocess.Popen(
-            [sys.executable, "-m", "http.server", str(port), "--bind", "127.0.0.1"],
+        return subprocess.Popen(
+            [sys.executable, "-m", "http.server", str(runtime_port), "--bind", "127.0.0.1"],
             cwd=str(root),
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
+
+    proc = start_process(kind, port)
+    time.sleep(0.25)
+    if proc.poll() is not None and kind != "static":
+        kind = "static"
+        port = _free_port()
+        proc = start_process(kind, port)
+        time.sleep(0.25)
+
+    if proc.poll() is not None:
+        if previous and previous.process.poll() is None:
+            card.preview_url = previous.preview_url
+            card.runtime_port = previous.port
+            card.runtime_status = "running"
+            return card
+        card.runtime_status = "failed"
+        return card
 
     preview = f"http://127.0.0.1:{port}/"
     _processes[card.id] = RuntimeProcess(
@@ -191,6 +212,8 @@ def deploy_app(card: TaskCard, implementation: ImplementationResult) -> TaskCard
         kind=kind,
         preview_url=preview,
     )
+    if previous:
+        _terminate_process(previous)
     card.preview_url = preview
     card.runtime_port = port
     card.runtime_status = "running"

@@ -199,13 +199,15 @@ class LangGraphOrchestrator:
         await store.upsert("execution_plans", plan)
         await store.upsert("task_cards", card)
 
-        # Work cards are materialised only after human scope approval — never auto-spawn.
+        # Work cards are visible immediately after planning. The epic and app execution
+        # still wait for human approval.
+        child_ids = await self.materialize_work_cards(card)
         await self._audit(
             card,
             "plan_execution",
             KanbanColumn.REFINAMENTO.value,
             KanbanColumn.REFINAMENTO.value,
-            {"tasks": len(tasks), "child_ids": []},
+            {"tasks": len(tasks), "child_ids": child_ids},
         )
         await a2a.publish_a2a(
             card,
@@ -213,7 +215,7 @@ class LangGraphOrchestrator:
             (
                 f"Plano com {len(tasks)} tarefas e {len(plan.required_agents)} agentes. "
                 f"Estratégia: {plan.strategy[:120]}{'…' if len(plan.strategy) > 120 else ''}. "
-                f"Solicitando aprovação humana do escopo."
+                f"Subcards criados no Kanban; solicitando aprovação humana para criar a aplicação."
             ),
             to_agent="supervisor",
             message_type="result",
@@ -225,7 +227,7 @@ class LangGraphOrchestrator:
         }
 
     async def _node_request_approval(self, state: PipelineState) -> PipelineState:
-        """Pause for human scope approval before swarm / work cards / app deploy."""
+        """Pause for human scope approval before swarm execution / app deploy."""
         store = get_store()
         card = TaskCard.model_validate(state["card"])
         previous = card.column
@@ -241,8 +243,8 @@ class LangGraphOrchestrator:
             requester="supervisor",
             decision=ApprovalDecision.PENDENTE,
             comment=(
-                "Escopo e plano prontos. Aprove para criar os cartões de trabalho "
-                "e liberar o enxame para construir/deployar a aplicação."
+                "Escopo, plano e subcards prontos. Aprove para liberar o enxame "
+                "a construir/deployar a aplicação."
             ),
         )
         await store.upsert("approvals", approval)
@@ -257,8 +259,8 @@ class LangGraphOrchestrator:
             card,
             "supervisor",
             (
-                "Escopo e plano prontos. Aguardando aprovação humana para "
-                "criar cartões de trabalho e liberar o enxame."
+                "Escopo, plano e subcards prontos. Aguardando aprovação humana "
+                "para liberar a criação da aplicação."
             ),
             message_type="status",
             pipeline_step="request_approval",
