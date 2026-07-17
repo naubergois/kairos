@@ -124,6 +124,10 @@ export const api = {
       request<SwarmMission>(`/swarm/missions/${id}/stop`, {
         method: "POST",
       }),
+    start: (id: string) =>
+      request<SwarmMission>(`/swarm/missions/${id}/start`, {
+        method: "POST",
+      }),
   },
   tickets: {
     list: () => request<SupportTicket[]>("/tickets"),

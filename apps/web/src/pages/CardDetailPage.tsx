@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import { Badge, Button, EmptyState, Panel, priorityTone } from "../components/ui";
 import { useAppStore } from "../store";
@@ -21,10 +21,12 @@ type Tab = (typeof tabs)[number];
 
 export function CardDetailPage() {
   const { id = "" } = useParams();
+  const navigate = useNavigate();
   const { setToast, refreshAll } = useAppStore();
   const [detail, setDetail] = useState<CardDetail | null>(null);
   const [tab, setTab] = useState<Tab>("descricao");
   const [busy, setBusy] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   async function load() {
     const data = await api.cards.get(id);
@@ -38,6 +40,20 @@ export function CardDetailPage() {
     const timer = window.setInterval(() => void load(), 5000);
     return () => window.clearInterval(timer);
   }, [id]);
+
+  async function deleteCard() {
+    setBusy(true);
+    try {
+      const res = await api.cards.remove(id);
+      setToast(`Deleted ${res.deleted.length} card(s)`);
+      await refreshAll();
+      navigate("/kanban");
+    } catch (err) {
+      setToast(err instanceof Error ? err.message : "Failed to delete card");
+      setBusy(false);
+      setConfirmDelete(false);
+    }
+  }
 
   async function decide(kind: "approve" | "reject") {
     setBusy(true);
@@ -97,8 +113,31 @@ export function CardDetailPage() {
               </Button>
             </>
           ) : null}
+          <Button variant="danger" disabled={busy} onClick={() => setConfirmDelete(true)}>
+            Delete
+          </Button>
         </div>
       </div>
+
+      {confirmDelete ? (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-4 sm:items-center">
+          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl">
+            <h2 className="text-xl font-extrabold tracking-tight text-rose-700">Delete card</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              "{card.title}" will be removed along with its child work cards and generated app.
+              This cannot be undone.
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <Button variant="ghost" disabled={busy} onClick={() => setConfirmDelete(false)}>
+                Cancel
+              </Button>
+              <Button variant="danger" disabled={busy} onClick={() => void deleteCard()}>
+                {busy ? "Deleting..." : "Delete"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div className="flex flex-wrap gap-2">
         {tabs.map((item) => (

@@ -37,6 +37,8 @@ const WORKING_COLUMNS = new Set<KanbanColumn>([
   "em_testes",
 ]);
 
+const RUNNING_SWARM_STATUSES = ["running", "coordinating", "executing"];
+
 /** Mirrors backend ALLOWED transitions for smarter lane drops. */
 const ALLOWED: Partial<Record<KanbanColumn, KanbanColumn[]>> = {
   entrada: ["triagem", "cancelado"],
@@ -80,10 +82,16 @@ function DroppableLane({
   lane,
   cards,
   allCards,
+  selectedIds,
+  onToggleSelect,
+  onDelete,
 }: {
   lane: BoardLane;
   cards: TaskCard[];
   allCards: TaskCard[];
+  selectedIds: Set<string>;
+  onToggleSelect: (id: string) => void;
+  onDelete: (card: TaskCard) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: lane.id });
   return (
@@ -104,14 +112,33 @@ function DroppableLane({
       </div>
       <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-2 pb-2">
         {cards.map((card) => (
-          <DraggableCard key={card.id} card={card} allCards={allCards} />
+          <DraggableCard
+            key={card.id}
+            card={card}
+            allCards={allCards}
+            selected={selectedIds.has(card.id)}
+            onToggleSelect={onToggleSelect}
+            onDelete={onDelete}
+          />
         ))}
       </div>
     </div>
   );
 }
 
-function DraggableCard({ card, allCards }: { card: TaskCard; allCards: TaskCard[] }) {
+function DraggableCard({
+  card,
+  allCards,
+  selected,
+  onToggleSelect,
+  onDelete,
+}: {
+  card: TaskCard;
+  allCards: TaskCard[];
+  selected: boolean;
+  onToggleSelect: (id: string) => void;
+  onDelete: (card: TaskCard) => void;
+}) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: card.id,
   });
@@ -121,7 +148,13 @@ function DraggableCard({ card, allCards }: { card: TaskCard; allCards: TaskCard[
   };
   return (
     <div ref={setNodeRef} style={style} {...listeners} {...attributes}>
-      <CardBody card={card} allCards={allCards} />
+      <CardBody
+        card={card}
+        allCards={allCards}
+        selected={selected}
+        onToggleSelect={onToggleSelect}
+        onDelete={onDelete}
+      />
     </div>
   );
 }
@@ -130,10 +163,16 @@ function CardBody({
   card,
   allCards = [],
   compact = false,
+  selected = false,
+  onToggleSelect,
+  onDelete,
 }: {
   card: TaskCard;
   allCards?: TaskCard[];
   compact?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (id: string) => void;
+  onDelete?: (card: TaskCard) => void;
 }) {
   const working = WORKING_COLUMNS.has(card.column);
   const kind = card.kind ?? (card.parent_id ? "work" : "epic");
@@ -146,12 +185,24 @@ function CardBody({
       className={`group rounded-xl border bg-white shadow-[var(--shadow-card)] transition hover:-translate-y-0.5 hover:shadow-md ${
         compact ? "p-2" : "p-3"
       } ${
-        kind === "epic"
-          ? "border-indigo-200/90 hover:border-indigo-300"
-          : "border-slate-200/80 hover:border-blue-200"
+        selected
+          ? "border-rose-300 ring-2 ring-rose-300"
+          : kind === "epic"
+            ? "border-indigo-200/90 hover:border-indigo-300"
+            : "border-slate-200/80 hover:border-blue-200"
       }`}
     >
       <div className="mb-1.5 flex flex-wrap items-center gap-1">
+        {onToggleSelect ? (
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={() => onToggleSelect(card.id)}
+            onPointerDown={(e) => e.stopPropagation()}
+            title="Select for bulk delete"
+            className="h-3.5 w-3.5 accent-rose-600"
+          />
+        ) : null}
         <Badge tone={kind === "epic" ? "accent" : "neutral"}>
           {kind === "epic" ? "Epic" : "Work"}
         </Badge>
@@ -159,6 +210,17 @@ function CardBody({
           {PRIORITY_LABEL[card.priority] ?? card.priority}
         </Badge>
         <Badge tone="info">{COLUMN_SHORT_LABELS[card.column]}</Badge>
+        {onDelete ? (
+          <button
+            type="button"
+            onClick={() => onDelete(card)}
+            onPointerDown={(e) => e.stopPropagation()}
+            title="Delete card"
+            className="ml-auto rounded-md px-1 text-sm leading-none text-slate-300 opacity-0 transition hover:bg-rose-50 hover:text-rose-600 group-hover:opacity-100"
+          >
+            ✕
+          </button>
+        ) : null}
       </div>
       <Link
         to={`/cards/${card.id}`}
@@ -276,7 +338,7 @@ function LiveAppDock({
 }
 
 export function KanbanPage() {
-  const { cards, setCards, refreshAll, setToast, agents } = useAppStore();
+  const { cards, setCards, refreshAll, setToast, agents, missions } = useAppStore();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
@@ -286,7 +348,34 @@ export function KanbanPage() {
   const [selectedLiveId, setSelectedLiveId] = useState<string | null>(null);
   const [resetOpen, setResetOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deleteTarget, setDeleteTarget] = useState<TaskCard[] | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [swarmBusy, setSwarmBusy] = useState<"start" | "stop" | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+
+  const activeMission = useMemo(() => {
+    const running = missions.find((m) => RUNNING_SWARM_STATUSES.includes(m.status));
+    if (running) return running;
+    const buildingCardIds = new Set(
+      cards.filter((c) => WORKING_COLUMNS.has(c.column)).map((c) => c.id),
+    );
+    return (
+      missions.find((m) => buildingCardIds.has(m.card_id)) ??
+      missions.find((m) =>
+        ["awaiting_delivery_approval", "blocked", "stopped", "failed"].includes(m.status),
+      ) ??
+      missions[0] ??
+      null
+    );
+  }, [missions, cards]);
+
+  const canStopSwarm = activeMission
+    ? RUNNING_SWARM_STATUSES.includes(activeMission.status)
+    : false;
+  const canStartSwarm = activeMission
+    ? !RUNNING_SWARM_STATUSES.includes(activeMission.status)
+    : false;
 
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase();
@@ -417,6 +506,67 @@ export function KanbanPage() {
     }
   }
 
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget?.length) return;
+    setDeleting(true);
+    const ids = deleteTarget.map((c) => c.id);
+    try {
+      const res =
+        ids.length === 1 ? await api.cards.remove(ids[0]) : await api.cards.bulkRemove(ids);
+      const removed = new Set(res.deleted);
+      setCards(cards.filter((c) => !removed.has(c.id)));
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        for (const id of removed) next.delete(id);
+        return next;
+      });
+      setDeleteTarget(null);
+      setToast(`Deleted ${res.deleted.length} card(s)`);
+      await refreshAll();
+    } catch (err) {
+      setToast(err instanceof Error ? err.message : "Failed to delete card(s)");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  async function runSwarmAction(action: "start" | "stop") {
+    if (!activeMission) return;
+    if (action === "stop" && !canStopSwarm) return;
+    if (action === "start" && !canStartSwarm) return;
+
+    setSwarmBusy(action);
+    try {
+      if (action === "stop") {
+        await api.swarm.stop(activeMission.id);
+        setToast("Enxame parado");
+      } else {
+        await api.swarm.start(activeMission.id);
+        setToast("Enxame iniciado");
+      }
+      await refreshAll();
+    } catch (err) {
+      setToast(
+        err instanceof Error
+          ? err.message
+          : action === "stop"
+            ? "Falha ao parar o enxame"
+            : "Falha ao iniciar o enxame",
+      );
+    } finally {
+      setSwarmBusy(null);
+    }
+  }
+
   const coreAgents = agents.length
     ? AGENT_ROBOTS.filter((a) => agents.some((x) => x.id === a.id))
     : AGENT_ROBOTS;
@@ -438,12 +588,47 @@ export function KanbanPage() {
           <div className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 shadow-sm">
             {building} building · {liveApps.length} live
           </div>
+          {activeMission ? (
+            <div className="flex items-center gap-1">
+              <Badge tone={canStopSwarm ? "success" : "neutral"}>
+                Swarm {activeMission.status}
+              </Badge>
+              <Button
+                variant="soft"
+                className="!px-2.5 !py-1.5 text-xs"
+                disabled={!canStartSwarm || swarmBusy !== null}
+                onClick={() => void runSwarmAction("start")}
+                title={`Start swarm · ${activeMission.objective}`}
+              >
+                {swarmBusy === "start" ? "..." : "Start"}
+              </Button>
+              <Button
+                variant="danger"
+                className="!px-2.5 !py-1.5 text-xs"
+                disabled={!canStopSwarm || swarmBusy !== null}
+                onClick={() => void runSwarmAction("stop")}
+                title={`Stop swarm · ${activeMission.objective}`}
+              >
+                {swarmBusy === "stop" ? "..." : "Stop"}
+              </Button>
+            </div>
+          ) : null}
           <input
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             placeholder="Search..."
             className="w-32 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs outline-none ring-blue-500 focus:ring-2 sm:w-40"
           />
+          {selectedIds.size ? (
+            <Button
+              variant="danger"
+              onClick={() =>
+                setDeleteTarget(cards.filter((c) => selectedIds.has(c.id)))
+              }
+            >
+              Delete selected ({selectedIds.size})
+            </Button>
+          ) : null}
           <Button variant="danger" onClick={() => setResetOpen(true)}>
             Reset
           </Button>
@@ -500,6 +685,9 @@ export function KanbanPage() {
               lane={lane}
               cards={byLane[lane.id]}
               allCards={cards}
+              selectedIds={selectedIds}
+              onToggleSelect={toggleSelect}
+              onDelete={(card) => setDeleteTarget([card])}
             />
           ))}
         </div>
@@ -519,6 +707,51 @@ export function KanbanPage() {
           When an epic finishes, the developed app appears here — running live.
         </div>
       )}
+
+      {deleteTarget?.length ? (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-4 sm:items-center">
+          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-extrabold tracking-tight text-rose-700">
+                  {deleteTarget.length === 1
+                    ? "Delete card"
+                    : `Delete ${deleteTarget.length} cards`}
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  {deleteTarget.length === 1
+                    ? `"${deleteTarget[0].title}" and its generated app will be removed.`
+                    : "The selected cards and their generated apps will be removed."}{" "}
+                  Child work cards are deleted too. This cannot be undone.
+                </p>
+              </div>
+              <button
+                onClick={() => setDeleteTarget(null)}
+                className="rounded-lg px-2 py-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+              >
+                ✕
+              </button>
+            </div>
+            {deleteTarget.length > 1 ? (
+              <ul className="mt-3 max-h-40 space-y-1 overflow-y-auto rounded-xl bg-slate-50 p-3 text-sm text-slate-700">
+                {deleteTarget.map((c) => (
+                  <li key={c.id} className="truncate">
+                    • {c.title}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            <div className="mt-5 flex justify-end gap-2">
+              <Button variant="ghost" disabled={deleting} onClick={() => setDeleteTarget(null)}>
+                Cancel
+              </Button>
+              <Button variant="danger" disabled={deleting} onClick={() => void confirmDelete()}>
+                {deleting ? "Deleting..." : "Delete"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {resetOpen ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-4 sm:items-center">

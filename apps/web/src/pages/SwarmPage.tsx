@@ -4,9 +4,12 @@ import { api } from "../api/client";
 import { Badge, Button, EmptyState, Panel, Stat } from "../components/ui";
 import { useAppStore } from "../store";
 
+const RUNNING_STATUSES = ["running", "coordinating", "executing"];
+
 export function SwarmPage() {
   const { missions, cards, refreshAll, setToast } = useAppStore();
-  const [stoppingMissionId, setStoppingMissionId] = useState<string | null>(null);
+  const [busyMissionId, setBusyMissionId] = useState<string | null>(null);
+  const [busyAction, setBusyAction] = useState<"start" | "stop" | null>(null);
 
   useEffect(() => {
     void refreshAll();
@@ -15,27 +18,40 @@ export function SwarmPage() {
   }, [refreshAll]);
 
   const active = missions.filter((m) =>
-    ["running", "coordinating", "executing", "awaiting_delivery_approval", "blocked"].includes(
-      m.status,
-    ),
+    [...RUNNING_STATUSES, "awaiting_delivery_approval", "blocked"].includes(m.status),
   );
   const selected = active[0] ?? missions[0];
   const card = selected ? cards.find((c) => c.id === selected.card_id) : null;
-  const canStopSelected = selected
-    ? ["running", "coordinating", "executing"].includes(selected.status)
-    : false;
+  const canStopSelected = selected ? RUNNING_STATUSES.includes(selected.status) : false;
+  const canStartSelected = selected ? !RUNNING_STATUSES.includes(selected.status) : false;
 
-  const stopSwarm = async () => {
-    if (!selected || !canStopSelected) return;
-    setStoppingMissionId(selected.id);
+  const runAction = async (action: "start" | "stop") => {
+    if (!selected) return;
+    if (action === "stop" && !canStopSelected) return;
+    if (action === "start" && !canStartSelected) return;
+
+    setBusyMissionId(selected.id);
+    setBusyAction(action);
     try {
-      await api.swarm.stop(selected.id);
-      setToast("Enxame parado");
+      if (action === "stop") {
+        await api.swarm.stop(selected.id);
+        setToast("Enxame parado");
+      } else {
+        await api.swarm.start(selected.id);
+        setToast("Enxame iniciado");
+      }
       await refreshAll();
     } catch (err) {
-      setToast(err instanceof Error ? err.message : "Falha ao parar o enxame");
+      setToast(
+        err instanceof Error
+          ? err.message
+          : action === "stop"
+            ? "Falha ao parar o enxame"
+            : "Falha ao iniciar o enxame",
+      );
     } finally {
-      setStoppingMissionId(null);
+      setBusyMissionId(null);
+      setBusyAction(null);
     }
   };
 
@@ -70,15 +86,26 @@ export function SwarmPage() {
           <Panel
             title="Topologia"
             action={
-              selected && canStopSelected ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  variant="primary"
+                  onClick={() => void runAction("start")}
+                  disabled={!canStartSelected || busyMissionId === selected.id}
+                >
+                  {busyMissionId === selected.id && busyAction === "start"
+                    ? "Iniciando..."
+                    : "Start"}
+                </Button>
                 <Button
                   variant="danger"
-                  onClick={stopSwarm}
-                  disabled={stoppingMissionId === selected.id}
+                  onClick={() => void runAction("stop")}
+                  disabled={!canStopSelected || busyMissionId === selected.id}
                 >
-                  {stoppingMissionId === selected.id ? "Parando..." : "Parar enxame"}
+                  {busyMissionId === selected.id && busyAction === "stop"
+                    ? "Parando..."
+                    : "Stop"}
                 </Button>
-              ) : null
+              </div>
             }
           >
             <div className="space-y-4">
@@ -152,18 +179,69 @@ export function SwarmPage() {
 
       <Panel title="Todas as missões">
         <div className="space-y-2">
-          {missions.map((mission) => (
-            <div
-              key={mission.id}
-              className="flex items-center justify-between rounded-2xl border border-[var(--line)] px-4 py-3"
-            >
-              <div>
-                <div className="font-medium">{mission.objective}</div>
-                <div className="text-xs text-[var(--muted)]">{mission.id}</div>
+          {missions.map((mission) => {
+            const canStop = RUNNING_STATUSES.includes(mission.status);
+            const canStart = !RUNNING_STATUSES.includes(mission.status);
+            const busy = busyMissionId === mission.id;
+            return (
+              <div
+                key={mission.id}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--line)] px-4 py-3"
+              >
+                <div>
+                  <div className="font-medium">{mission.objective}</div>
+                  <div className="text-xs text-[var(--muted)]">
+                    {mission.id} · {mission.status}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge>{Math.round(mission.progress * 100)}%</Badge>
+                  <Button
+                    variant="soft"
+                    className="!px-3 !py-1.5 text-xs"
+                    disabled={!canStart || busy}
+                    onClick={async () => {
+                      setBusyMissionId(mission.id);
+                      setBusyAction("start");
+                      try {
+                        await api.swarm.start(mission.id);
+                        setToast("Enxame iniciado");
+                        await refreshAll();
+                      } catch (err) {
+                        setToast(err instanceof Error ? err.message : "Falha ao iniciar o enxame");
+                      } finally {
+                        setBusyMissionId(null);
+                        setBusyAction(null);
+                      }
+                    }}
+                  >
+                    {busy && busyAction === "start" ? "..." : "Start"}
+                  </Button>
+                  <Button
+                    variant="danger"
+                    className="!px-3 !py-1.5 text-xs"
+                    disabled={!canStop || busy}
+                    onClick={async () => {
+                      setBusyMissionId(mission.id);
+                      setBusyAction("stop");
+                      try {
+                        await api.swarm.stop(mission.id);
+                        setToast("Enxame parado");
+                        await refreshAll();
+                      } catch (err) {
+                        setToast(err instanceof Error ? err.message : "Falha ao parar o enxame");
+                      } finally {
+                        setBusyMissionId(null);
+                        setBusyAction(null);
+                      }
+                    }}
+                  >
+                    {busy && busyAction === "stop" ? "..." : "Stop"}
+                  </Button>
+                </div>
               </div>
-              <Badge>{Math.round(mission.progress * 100)}%</Badge>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </Panel>
     </div>

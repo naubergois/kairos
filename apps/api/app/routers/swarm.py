@@ -30,3 +30,11 @@ async def stop_mission(mission_id: str) -> SwarmMission:
     if not mission:
         raise HTTPException(status_code=404, detail="Missão não encontrada")
     return mission
+
+
+@router.post("/missions/{mission_id}/start")
+async def start_mission(mission_id: str) -> SwarmMission:
+    mission = await ruflo.start_mission(mission_id)
+    if not mission:
+        raise HTTPException(status_code=404, detail="Missão não encontrada")
+    return mission

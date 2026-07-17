@@ -8,8 +8,11 @@ hierarchically by a coordinator design step.
 from __future__ import annotations
 
 import asyncio
+import logging
 from datetime import datetime
 from typing import Any, TypedDict
+
+logger = logging.getLogger(__name__)
 
 from langgraph.graph import END, START, StateGraph
 
@@ -251,6 +254,86 @@ class RufloSwarmManager:
             )
 
         return mission
+
+    async def start_mission(self, mission_id: str) -> SwarmMission | None:
+        """Resume or relaunch a stopped / idle mission in the background."""
+        store = get_store()
+        raw = await store.get("swarm_missions", mission_id)
+        if not raw:
+            return None
+
+        mission = SwarmMission.model_validate(raw)
+        running = self._tasks.get(mission.card_id)
+        if running and not running.done():
+            return mission
+
+        if mission.status in {"running", "coordinating", "executing"} and mission.progress > 0:
+            # Soft-start: re-queue background execute even if status looks active
+            # but no live task is registered (e.g. after API restart).
+            pass
+
+        mission.status = "running"
+        mission.progress = max(mission.progress, 0.1)
+        mission.updated_at = datetime.utcnow()
+        mission.errors = [e for e in mission.errors if e != "Missão parada pelo usuário"]
+        for agent in mission.agents:
+            if agent.status in {"stopped", "failed", "blocked", "error"}:
+                agent.status = "assigned"
+                agent.output_summary = None
+        await store.upsert("swarm_missions", mission)
+
+        card_raw = await store.get("task_cards", mission.card_id)
+        if not card_raw:
+            return mission
+
+        card = TaskCard.model_validate(card_raw)
+        previous = card.column
+        card.column = KanbanColumn.PRONTO_ENXAME
+        card.tags = [t for t in card.tags if t not in {"swarm_stopped", "swarm_error"}]
+        card.tags = list({*card.tags, "swarm_queued"})
+        card.block_reason = None
+        card.updated_at = datetime.utcnow()
+        await store.upsert("task_cards", card)
+        await self._move_children(card.id, KanbanColumn.PRONTO_ENXAME, stagger=False)
+        await self._audit(
+            card,
+            "start_swarm",
+            card.column.value,
+            {"mission_id": mission.id, "previous_state": previous.value},
+        )
+
+        asyncio.create_task(self._run_mission_safe(card.id))
+        return mission
+
+    async def _run_mission_safe(self, card_id: str) -> None:
+        task = asyncio.current_task()
+        if task:
+            self.register_task(card_id, task)
+        try:
+            store = get_store()
+            raw = await store.get("task_cards", card_id)
+            if not raw:
+                return
+            card = TaskCard.model_validate(raw)
+            await self.execute(card)
+        except asyncio.CancelledError:
+            logger.info("Background swarm stopped for %s", card_id)
+            raise
+        except Exception:
+            logger.exception("Background swarm failed for %s", card_id)
+            try:
+                store = get_store()
+                raw = await store.get("task_cards", card_id)
+                if raw:
+                    card = TaskCard.model_validate(raw)
+                    card.tags = list({*card.tags, "swarm_error"})
+                    card.updated_at = datetime.utcnow()
+                    await store.upsert("task_cards", card)
+            except Exception:
+                logger.exception("Failed to mark swarm_error on %s", card_id)
+        finally:
+            if task:
+                self.unregister_task(card_id, task)
 
     async def execute(self, card: TaskCard) -> TaskCard:
         store = get_store()
