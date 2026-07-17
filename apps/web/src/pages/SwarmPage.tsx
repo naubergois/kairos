@@ -1,10 +1,12 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Badge, EmptyState, Panel, Stat } from "../components/ui";
+import { api } from "../api/client";
+import { Badge, Button, EmptyState, Panel, Stat } from "../components/ui";
 import { useAppStore } from "../store";
 
 export function SwarmPage() {
-  const { missions, cards, refreshAll } = useAppStore();
+  const { missions, cards, refreshAll, setToast } = useAppStore();
+  const [stoppingMissionId, setStoppingMissionId] = useState<string | null>(null);
 
   useEffect(() => {
     void refreshAll();
@@ -13,10 +15,29 @@ export function SwarmPage() {
   }, [refreshAll]);
 
   const active = missions.filter((m) =>
-    ["running", "executing", "awaiting_delivery_approval", "blocked"].includes(m.status),
+    ["running", "coordinating", "executing", "awaiting_delivery_approval", "blocked"].includes(
+      m.status,
+    ),
   );
   const selected = active[0] ?? missions[0];
   const card = selected ? cards.find((c) => c.id === selected.card_id) : null;
+  const canStopSelected = selected
+    ? ["running", "coordinating", "executing"].includes(selected.status)
+    : false;
+
+  const stopSwarm = async () => {
+    if (!selected || !canStopSelected) return;
+    setStoppingMissionId(selected.id);
+    try {
+      await api.swarm.stop(selected.id);
+      setToast("Enxame parado");
+      await refreshAll();
+    } catch (err) {
+      setToast(err instanceof Error ? err.message : "Falha ao parar o enxame");
+    } finally {
+      setStoppingMissionId(null);
+    }
+  };
 
   return (
     <div className="space-y-5">
@@ -46,7 +67,20 @@ export function SwarmPage() {
         />
       ) : (
         <div className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
-          <Panel title="Topologia">
+          <Panel
+            title="Topologia"
+            action={
+              selected && canStopSelected ? (
+                <Button
+                  variant="danger"
+                  onClick={stopSwarm}
+                  disabled={stoppingMissionId === selected.id}
+                >
+                  {stoppingMissionId === selected.id ? "Parando..." : "Parar enxame"}
+                </Button>
+              ) : null
+            }
+          >
             <div className="space-y-4">
               <div className="rounded-[24px] border border-[var(--line)] bg-[#1c2430] px-5 py-6 text-[#f7f3ea]">
                 <div className="text-xs uppercase tracking-[0.12em] text-[#9aa5b5]">Coordenador</div>
