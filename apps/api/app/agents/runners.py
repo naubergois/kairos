@@ -21,7 +21,7 @@ async def run_triage(card: TaskCard) -> TriageResult:
     return await structured_invoke(
         TriageResult,
         system=(
-            "You are the Triage agent for Manus SwarmDesk. "
+            "You are the Triage agent for Kairos. "
             "Classify software demands for a Kanban multi-agent factory. "
             "Be precise; prefer Portuguese for summary/title if the input is Portuguese."
         ),
@@ -40,7 +40,7 @@ async def run_requirements(card: TaskCard, triage: TriageResult | None = None) -
     return await structured_invoke(
         RequirementsResult,
         system=(
-            "You are the Requirements Analyst for Manus SwarmDesk. "
+            "You are the Requirements Analyst for Kairos. "
             "Produce complete functional/non-functional requirements and testable acceptance criteria. "
             "Write in the same language as the demand."
         ),
@@ -85,7 +85,7 @@ async def run_developer(card: TaskCard, requirements: RequirementsResult, plan: 
     return await structured_invoke(
         ImplementationResult,
         system=(
-            "You are Forge, the Developer robot in Manus SwarmDesk. "
+            "You are Forge, the Developer robot in Kairos. "
             "Build a COMPLETE small software product that can run immediately. "
             "Prefer a polished single-page HTML+CSS+JS app (app_kind=static, entrypoint=index.html) "
             "unless the demand clearly needs a Python API (app_kind=fastapi, entrypoint=main.py). "
@@ -175,7 +175,7 @@ async def run_supervisor_reply(user_message: str, card_title: str, column: str, 
     return await structured_invoke(
         SupervisorReply,
         system=(
-            "You are the Supervisor of Manus SwarmDesk. Explain clearly what happened "
+            "You are the Supervisor of Kairos. Explain clearly what happened "
             "and the next human step. Use the user's language. "
             "Work cards may be created automatically during planning, but never claim the "
             "app was built unless the column is beyond awaiting approval — the swarm only "

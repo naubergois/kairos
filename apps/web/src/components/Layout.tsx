@@ -32,9 +32,9 @@ export function Layout() {
       >
         <div className={clsx(boardMode ? "px-4 py-3" : "px-5 py-6")}>
           <div className="flex items-center gap-3">
-            <img src="/icon.png" alt="Mankiu" className="h-9 w-9 rounded-xl" />
+            <img src="/icon.png" alt="Kairos" className="h-9 w-9 rounded-xl" />
             <div>
-              <div className="brand text-lg font-extrabold tracking-tight">Mankiu</div>
+              <div className="brand text-lg font-extrabold tracking-tight">Kairos</div>
               <div className="text-[11px] font-medium text-slate-400">Multi-agent factory</div>
             </div>
           </div>

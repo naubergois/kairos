@@ -40,7 +40,7 @@ export function PortalPage() {
   return (
     <div className="mx-auto grid max-w-5xl gap-5 lg:grid-cols-[1.2fr_0.8fr]">
       <Panel
-        title="Portal Mankiu"
+        title="Portal Kairos"
         action={<Badge tone="accent">supervisor</Badge>}
         className="min-h-[70vh]"
       >
@@ -92,9 +92,14 @@ export function PortalPage() {
               className="flex-1 resize-none rounded-2xl border border-[var(--line)] bg-white px-4 py-3 outline-none focus:ring-2 focus:ring-[var(--accent)]"
             />
             <Button onClick={() => void send()} disabled={sending} className="self-end">
-              {sending ? "..." : "Enviar"}
+              {sending ? "Processando..." : "Enviar"}
             </Button>
           </div>
+          {sending ? (
+            <p className="mt-2 text-xs font-medium text-blue-600">
+              Triagem e plano em andamento — o cartão aparece no board quando terminar.
+            </p>
+          ) : null}
         </div>
       </Panel>
 

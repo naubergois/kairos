@@ -232,6 +232,7 @@ function CardBody({
   onDelete?: (card: TaskCard) => void;
   onApprove?: (card: TaskCard) => void;
 }) {
+  const missions = useAppStore((s) => s.missions);
   const working = WORKING_COLUMNS.has(card.column);
   const kind = card.kind ?? (card.parent_id ? "work" : "epic");
   const parent = card.parent_id ? allCards.find((c) => c.id === card.parent_id) : undefined;
@@ -250,6 +251,20 @@ function CardBody({
   const canApprove =
     Boolean(onApprove) &&
     (card.column === "aguardando_aprovacao" || card.column === "pronto_entrega");
+  const mission = missions.find((m) => m.card_id === card.id);
+  const missionActive =
+    Boolean(mission) &&
+    (RUNNING_SWARM_STATUSES.includes(mission!.status) ||
+      (working && mission!.progress > 0 && mission!.progress < 1));
+  const progressPct = missionActive ? Math.round(Math.min(1, Math.max(0, mission!.progress)) * 100) : null;
+  const phaseLabel = missionActive
+    ? mission!.phase_label?.trim() ||
+      (mission!.status === "coordinating"
+        ? "Coordenando"
+        : mission!.status === "executing"
+          ? "Em execução"
+          : "Building")
+    : null;
 
   return (
     <div
@@ -313,28 +328,54 @@ function CardBody({
         </p>
       ) : null}
 
-      {agents.length ? (
-        <div className="mt-2.5 flex items-center justify-between gap-2">
-          <div
-            className={`flex flex-wrap items-center ${
-              working ? "gap-2 agent-row-spreading" : "gap-1.5"
-            }`}
-          >
-            {agents.slice(0, 4).map((id, i) => (
-              <AgentAvatar
-                key={id}
-                id={id}
-                working={working}
-                celebrating={celebrating}
-                motionDelayMs={i * (working ? 220 : 90)}
-                size="sm"
-              />
-            ))}
+      {agents.length || progressPct !== null ? (
+        <div className="mt-2.5 space-y-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <div
+              className={`flex flex-wrap items-center ${
+                working || missionActive ? "gap-2 agent-row-spreading" : "gap-1.5"
+              }`}
+            >
+              {agents.slice(0, 4).map((id, i) => (
+                <AgentAvatar
+                  key={id}
+                  id={id}
+                  working={working || missionActive}
+                  celebrating={celebrating}
+                  motionDelayMs={i * (working || missionActive ? 220 : 90)}
+                  size="sm"
+                />
+              ))}
+            </div>
+            {progressPct !== null ? (
+              <span className="shrink-0 text-[10px] font-bold tabular-nums text-blue-600">
+                {progressPct}%
+              </span>
+            ) : working ? (
+              <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-blue-600">
+                Building
+              </span>
+            ) : null}
           </div>
-          {working ? (
-            <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-blue-600">
-              Building
-            </span>
+          {progressPct !== null ? (
+            <div className="space-y-0.5">
+              <div
+                className="h-1.5 overflow-hidden rounded-full bg-blue-100"
+                role="progressbar"
+                aria-valuenow={progressPct}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label={phaseLabel ?? "Progresso da missão"}
+              >
+                <div
+                  className="h-full rounded-full bg-blue-500 transition-[width] duration-700 ease-out"
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
+              {phaseLabel ? (
+                <p className="truncate text-[10px] font-medium text-slate-500">{phaseLabel}</p>
+              ) : null}
+            </div>
           ) : null}
         </div>
       ) : null}

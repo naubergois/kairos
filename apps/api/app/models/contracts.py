@@ -115,6 +115,7 @@ class SwarmMission(BaseModel):
     expected_result: str = ""
     progress: float = 0.0
     status: str = "pending"
+    phase_label: str = ""
     errors: list[str] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
@@ -189,7 +190,7 @@ class SupportTicket(BaseModel):
     severity: str = "medium"
     impact: str = ""
     evidences: list[str] = Field(default_factory=list)
-    system: str = "swarmdesk"
+    system: str = "kairos"
     card_id: str | None = None
     owner: str = "ops"
     due_date: datetime | None = None

@@ -1,7 +1,7 @@
 """Hierarchical swarm execution (Ruflo-style topology) powered by real LLM agents.
 
 Ruflo MCP/CLI is an external harness for Claude Code; this adapter implements the
-same control contract inside SwarmDesk using LangChain specialists coordinated
+same control contract inside Kairos using LangChain specialists coordinated
 hierarchically by a coordinator design step.
 """
 
@@ -189,6 +189,85 @@ class RufloSwarmManager:
                 await asyncio.sleep(_CHILD_MOVE_DELAY_S)
         return moved
 
+    async def _set_mission_progress(
+        self,
+        mission: SwarmMission,
+        card: TaskCard,
+        progress: float,
+        *,
+        status: str | None = None,
+        phase_label: str = "",
+        narrate: bool = False,
+        agent: str = "coordenador",
+    ) -> SwarmMission:
+        """Persist progress so Kanban/Swarm polling shows live feedback."""
+        store = get_store()
+        mission.progress = max(mission.progress, min(1.0, progress))
+        if status:
+            mission.status = status
+        if phase_label:
+            mission.phase_label = phase_label
+        mission.updated_at = datetime.utcnow()
+        await store.upsert("swarm_missions", mission)
+        if narrate and phase_label:
+            pct = int(round(mission.progress * 100))
+            await a2a.publish_a2a(
+                card,
+                agent,
+                f"{phase_label} ({pct}%).",
+                message_type="status",
+                pipeline_step="progress",
+            )
+        return mission
+
+    async def _await_with_progress(
+        self,
+        coro: Any,
+        mission: SwarmMission,
+        card: TaskCard,
+        *,
+        start: float,
+        ceiling: float,
+        phase_label: str,
+        status: str = "executing",
+        interval_s: float = 6.0,
+        step: float = 0.025,
+    ) -> Any:
+        """Run a long LLM/deploy call while inching progress so the UI never freezes."""
+        await self._set_mission_progress(
+            mission,
+            card,
+            start,
+            status=status,
+            phase_label=phase_label,
+            narrate=True,
+        )
+        task = asyncio.create_task(coro)
+        current = start
+        try:
+            while not task.done():
+                done, _ = await asyncio.wait({task}, timeout=interval_s)
+                if done:
+                    break
+                current = min(ceiling, current + step)
+                await self._set_mission_progress(
+                    mission,
+                    card,
+                    current,
+                    status=status,
+                    phase_label=phase_label,
+                    narrate=False,
+                )
+            return await task
+        except Exception:
+            if not task.done():
+                task.cancel()
+                try:
+                    await task
+                except (asyncio.CancelledError, Exception):
+                    pass
+            raise
+
     async def create_mission(self, card: TaskCard) -> SwarmMission:
         store = get_store()
         plans = await store.list("execution_plans", {"card_id": card.id})
@@ -228,6 +307,7 @@ class RufloSwarmManager:
             expected_result=design.expected_result,
             status="running",
             progress=0.1,
+            phase_label="Enxame montado — pronto para executar",
         )
         card.column = KanbanColumn.PRONTO_ENXAME
         card.agents = [a.agent_id for a in agents]
@@ -615,19 +695,16 @@ class RufloSwarmManager:
 
     async def _node_design(self, state: SwarmState) -> SwarmState:
         # Mission already created; mark progress.
-        store = get_store()
         card = TaskCard.model_validate(state["card"])
         mission = SwarmMission.model_validate(state["mission"])
-        mission.progress = 0.15
-        mission.status = "coordinating"
-        mission.updated_at = datetime.utcnow()
-        await store.upsert("swarm_missions", mission)
-        await a2a.publish_a2a(
+        mission = await self._set_mission_progress(
+            mission,
             card,
-            "coordenador",
-            "Coordenando o enxame — distribuindo tarefas entre os agentes.",
-            message_type="status",
-            pipeline_step="design_swarm",
+            0.15,
+            status="coordinating",
+            phase_label="Coordenando o enxame",
+            narrate=True,
+            agent="coordenador",
         )
         return {"mission": mission.model_dump(mode="json"), "card": card.model_dump(mode="json")}
 
@@ -680,10 +757,27 @@ class RufloSwarmManager:
             message_type="status",
             pipeline_step="execute_dev",
         )
-        implementation = await runners.run_developer(card, req_llm, plan)
+        implementation = await self._await_with_progress(
+            runners.run_developer(card, req_llm, plan),
+            mission,
+            card,
+            start=0.2,
+            ceiling=0.38,
+            phase_label="Gerando código da mini-app",
+            status="executing",
+        )
         from app.services.runtime import deploy_app
 
-        card = deploy_app(card, implementation)
+        mission = await self._set_mission_progress(
+            mission,
+            card,
+            0.4,
+            status="executing",
+            phase_label="Publicando preview ao vivo",
+            narrate=True,
+            agent="desenvolvedor",
+        )
+        card = await asyncio.to_thread(deploy_app, card, implementation)
         card.budget_spent += 48_000
         card.updated_at = datetime.utcnow()
         for agent in mission.agents:
@@ -692,10 +786,14 @@ class RufloSwarmManager:
                 agent.output_summary = (
                     f"{implementation.summary[:200]} · live {card.preview_url or 'n/a'}"
                 )
-        mission.progress = 0.45
-        mission.status = "executing"
-        mission.updated_at = datetime.utcnow()
-        await store.upsert("swarm_missions", mission)
+        mission = await self._set_mission_progress(
+            mission,
+            card,
+            0.45,
+            status="executing",
+            phase_label="Implementação concluída — indo para revisão",
+            narrate=False,
+        )
         await store.upsert("task_cards", card)
         await self._artifact(
             card,
@@ -766,7 +864,15 @@ class RufloSwarmManager:
             constraints=requirements.constraints,
             acceptance_criteria=requirements.acceptance_criteria,
         )
-        review_out = await runners.run_reviewer(card, req_llm, implementation)
+        review_out = await self._await_with_progress(
+            runners.run_reviewer(card, req_llm, implementation),
+            mission,
+            card,
+            start=0.5,
+            ceiling=0.68,
+            phase_label="Revisando implementação",
+            status="executing",
+        )
         review = ReviewDecision(
             card_id=card.id,
             decision=review_out.decision,
@@ -782,10 +888,15 @@ class RufloSwarmManager:
             if agent.role in {"revisor", "reviewer"}:
                 agent.status = "completed"
                 agent.output_summary = review.rationale[:280]
-        mission.progress = 0.7
-        mission.updated_at = datetime.utcnow()
+        mission = await self._set_mission_progress(
+            mission,
+            card,
+            0.7,
+            status="executing",
+            phase_label="Revisão concluída",
+            narrate=False,
+        )
         await store.upsert("reviews", review)
-        await store.upsert("swarm_missions", mission)
         await store.upsert("task_cards", card)
         await self._audit(card, "review_artifacts", KanbanColumn.EM_REVISAO.value, {
             "decision": review.decision.value,
@@ -855,7 +966,15 @@ class RufloSwarmManager:
             constraints=requirements.constraints,
             acceptance_criteria=requirements.acceptance_criteria,
         )
-        test_out = await runners.run_tester(card, req_llm, implementation)
+        test_out = await self._await_with_progress(
+            runners.run_tester(card, req_llm, implementation),
+            mission,
+            card,
+            start=0.75,
+            ceiling=0.86,
+            phase_label="Executando testes",
+            status="executing",
+        )
         failures = [
             TestFailure(
                 name=str(f.get("name", "test")),
@@ -880,10 +999,15 @@ class RufloSwarmManager:
             if agent.role in {"testador", "tester"}:
                 agent.status = "completed"
                 agent.output_summary = test.recommendation[:280]
-        mission.progress = 0.88
-        mission.updated_at = datetime.utcnow()
+        mission = await self._set_mission_progress(
+            mission,
+            card,
+            0.88,
+            status="executing",
+            phase_label="Testes concluídos",
+            narrate=False,
+        )
         await store.upsert("test_results", test)
-        await store.upsert("swarm_missions", mission)
         await store.upsert("task_cards", card)
         await self._audit(card, "run_tests", KanbanColumn.EM_TESTES.value, {
             "passed": test.passed,
@@ -980,7 +1104,8 @@ class RufloSwarmManager:
         from app.agents.schemas import ReviewResult as RR
         from app.agents.schemas import TestPlanResult as TR
 
-        docs = await runners.run_documentation(
+        mission = SwarmMission.model_validate(state["mission"]) if state.get("mission") else None
+        docs_coro = runners.run_documentation(
             card,
             req_llm,
             implementation,
@@ -1006,6 +1131,18 @@ class RufloSwarmManager:
                 evidence_notes="; ".join(test.evidences),
             ),
         )
+        if mission is not None:
+            docs = await self._await_with_progress(
+                docs_coro,
+                mission,
+                card,
+                start=0.9,
+                ceiling=0.96,
+                phase_label="Gerando documentação de entrega",
+                status="executing",
+            )
+        else:
+            docs = await docs_coro
         card.budget_spent += 12_000
         await self._artifact(
             card,
@@ -1024,7 +1161,13 @@ class RufloSwarmManager:
             pipeline_step="document",
         )
         await store.upsert("task_cards", card)
-        return {"card": card.model_dump(mode="json"), "documentation": docs.model_dump(mode="json")}
+        result: SwarmState = {
+            "card": card.model_dump(mode="json"),
+            "documentation": docs.model_dump(mode="json"),
+        }
+        if mission is not None:
+            result["mission"] = mission.model_dump(mode="json")
+        return result
 
     async def _node_prepare_delivery(self, state: SwarmState) -> SwarmState:
         if state.get("error"):
@@ -1034,9 +1177,15 @@ class RufloSwarmManager:
         mission = SwarmMission.model_validate(state["mission"])
         card.column = KanbanColumn.PRONTO_ENTREGA
         card.updated_at = datetime.utcnow()
-        mission.progress = 1.0
-        mission.status = "awaiting_delivery_approval"
-        mission.updated_at = datetime.utcnow()
+        mission = await self._set_mission_progress(
+            mission,
+            card,
+            1.0,
+            status="awaiting_delivery_approval",
+            phase_label="Pronto para aprovação de entrega",
+            narrate=True,
+            agent="coordenador",
+        )
         await self._move_children(card.id, KanbanColumn.CONCLUIDO, stagger=True)
         approval = HumanApproval(
             card_id=card.id,

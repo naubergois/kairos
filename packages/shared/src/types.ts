@@ -120,6 +120,7 @@ export interface SwarmMission {
   expected_result: string;
   progress: number;
   status: string;
+  phase_label?: string;
   errors: string[];
   created_at: string;
   updated_at: string;

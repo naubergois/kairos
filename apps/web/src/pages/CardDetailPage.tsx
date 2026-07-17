@@ -341,6 +341,23 @@ export function CardDetailPage() {
                 <Badge>{mission.status}</Badge>
                 <Badge tone="info">{Math.round(mission.progress * 100)}%</Badge>
               </div>
+              {mission.phase_label ? (
+                <p className="text-sm text-[var(--muted)]">{mission.phase_label}</p>
+              ) : null}
+              <div
+                className="h-2 overflow-hidden rounded-full bg-blue-100"
+                role="progressbar"
+                aria-valuenow={Math.round(mission.progress * 100)}
+                aria-valuemin={0}
+                aria-valuemax={100}
+              >
+                <div
+                  className="h-full rounded-full bg-blue-500 transition-[width] duration-700 ease-out"
+                  style={{
+                    width: `${Math.min(100, Math.round(mission.progress * 100))}%`,
+                  }}
+                />
+              </div>
               {mission.agents.map((agent) => (
                 <div
                   key={`${agent.agent_id}-${agent.subtask}`}

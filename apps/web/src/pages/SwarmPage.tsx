@@ -133,8 +133,31 @@ export function SwarmPage() {
         <Stat
           label="Progresso"
           value={selected ? `${Math.round(selected.progress * 100)}%` : "—"}
+          hint={selected?.phase_label || undefined}
         />
       </div>
+      {selected && RUNNING_STATUSES.includes(selected.status) ? (
+        <div className="rounded-2xl border border-[var(--line)] bg-white px-4 py-3">
+          <div className="mb-1.5 flex items-center justify-between gap-2 text-xs font-semibold text-slate-600">
+            <span className="truncate">{selected.phase_label || selected.status}</span>
+            <span className="tabular-nums text-blue-600">
+              {Math.round(selected.progress * 100)}%
+            </span>
+          </div>
+          <div
+            className="h-2 overflow-hidden rounded-full bg-blue-100"
+            role="progressbar"
+            aria-valuenow={Math.round(selected.progress * 100)}
+            aria-valuemin={0}
+            aria-valuemax={100}
+          >
+            <div
+              className="h-full rounded-full bg-blue-500 transition-[width] duration-700 ease-out"
+              style={{ width: `${Math.min(100, Math.round(selected.progress * 100))}%` }}
+            />
+          </div>
+        </div>
+      ) : null}
 
       {!selected ? (
         <EmptyState

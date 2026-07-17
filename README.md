@@ -34,7 +34,7 @@
 
 It combines:
 
-- an intelligent assistant (Kairos-style portal)
+- an intelligent assistant portal
 - an autonomous software factory
 - a visual Kanban task manager
 - an agent orchestrator
@@ -203,7 +203,7 @@ MIT — see repository for details.
 
 它融合了：
 
-- 智能助手门户（类似 Kairos）
+- 智能助手门户
 - 自主软件工厂
 - 可视化看板任务管理
 - 智能体编排器
@@ -354,7 +354,7 @@ O **Kairos** é uma plataforma multiagente para entrega autônoma de software. V
 
 Ele combina:
 
-- assistente inteligente (portal no estilo Kairos)
+- assistente inteligente (portal de chat)
 - fábrica autônoma de software
 - gerenciador visual de tarefas (Kanban)
 - orquestrador de agentes

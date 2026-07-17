@@ -51,7 +51,7 @@ async def health():
         llm_ready = False
     return {
         "status": "ok",
-        "service": "manus-swarmdesk",
+        "service": "kairos",
         "llm_ready": llm_ready,
         "llm_provider": info["provider"],
         "llm_model": info["model"],

@@ -1,1 +1,1 @@
-"""Manus SwarmDesk API."""
+"""Kairos API."""
