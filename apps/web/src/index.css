@@ -1,0 +1,68 @@
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap");
+@import "tailwindcss";
+
+:root {
+  --bg: #f3efe6;
+  --bg-elevated: #fffaf2;
+  --ink: #1c2430;
+  --muted: #5c6775;
+  --line: #d7cfc0;
+  --accent: #0f6a5a;
+  --accent-soft: #d8efe9;
+  --warn: #b45309;
+  --danger: #9f1239;
+  --info: #1d4e89;
+  --shadow: 0 18px 40px rgba(28, 36, 48, 0.08);
+  font-family: "IBM Plex Sans", sans-serif;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at top left, rgba(15, 106, 90, 0.12), transparent 28%),
+    radial-gradient(circle at 80% 0%, rgba(29, 78, 137, 0.1), transparent 24%),
+    linear-gradient(180deg, #f7f3ea 0%, #efe8db 100%);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+}
+
+h1,
+h2,
+h3,
+.brand {
+  font-family: "Fraunces", Georgia, serif;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+::-webkit-scrollbar {
+  height: 10px;
+  width: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c7bba8;
+  border-radius: 999px;
+}

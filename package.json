@@ -1,0 +1,11 @@
+{
+  "name": "manus-swarmdesk",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev:web": "npm --prefix apps/web run dev",
+    "dev:api": "cd apps/api && .venv/bin/uvicorn app.main:app --reload --port 8000",
+    "build:web": "npm --prefix apps/web run build",
+    "docker:up": "docker compose up -d"
+  }
+}
