@@ -43,6 +43,9 @@ class TaskCard(BaseModel):
     agents: list[str] = Field(default_factory=list)
     subtasks: list[str] = Field(default_factory=list)
     block_reason: str | None = None
+    preview_url: str | None = None
+    runtime_status: str | None = None
+    runtime_port: int | None = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

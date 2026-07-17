@@ -1,24 +1,24 @@
-@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");
 @import "tailwindcss";
 
 :root {
-  --bg: #f3efe6;
-  --bg-elevated: #fffaf2;
-  --ink: #1c2430;
-  --muted: #5c6775;
-  --line: #d7cfc0;
-  --accent: #0f6a5a;
-  --accent-soft: #d8efe9;
-  --warn: #b45309;
-  --danger: #9f1239;
-  --info: #1d4e89;
-  --shadow: 0 18px 40px rgba(28, 36, 48, 0.08);
-  font-family: "IBM Plex Sans", sans-serif;
+  --bg: #f4f6fb;
+  --bg-elevated: #ffffff;
+  --ink: #0f172a;
+  --muted: #64748b;
+  --line: #e2e8f0;
+  --accent: #2563eb;
+  --accent-soft: #dbeafe;
+  --warn: #d97706;
+  --danger: #e11d48;
+  --info: #0891b2;
+  --success: #059669;
+  --board: #e8edf5;
+  --shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.06), 0 8px 16px rgba(15, 23, 42, 0.04);
+  font-family: "Plus Jakarta Sans", system-ui, sans-serif;
   color: var(--ink);
-  background:
-    radial-gradient(circle at top left, rgba(15, 106, 90, 0.12), transparent 28%),
-    radial-gradient(circle at 80% 0%, rgba(29, 78, 137, 0.1), transparent 24%),
-    linear-gradient(180deg, #f7f3ea 0%, #efe8db 100%);
+  background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 45%, #f4f6fb 100%);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -42,7 +42,8 @@ h1,
 h2,
 h3,
 .brand {
-  font-family: "Fraunces", Georgia, serif;
+  font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+  letter-spacing: -0.02em;
 }
 
 a {
@@ -58,11 +59,41 @@ select {
 }
 
 ::-webkit-scrollbar {
-  height: 10px;
-  width: 10px;
+  height: 8px;
+  width: 8px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #c7bba8;
+  background: #cbd5e1;
   border-radius: 999px;
+}
+
+@keyframes agentPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.35);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 0 6px rgba(37, 99, 235, 0);
+  }
+}
+
+@keyframes floaty {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+.agent-working {
+  animation: agentPulse 1.6s ease-in-out infinite;
+}
+
+.agent-float {
+  animation: floaty 2.4s ease-in-out infinite;
 }

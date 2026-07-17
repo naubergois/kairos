@@ -18,3 +18,4 @@ htmlcov/
 .idea/
 .vscode/
 apps/api/.data/
+apps/api/workspaces/

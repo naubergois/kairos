@@ -3,27 +3,32 @@ import clsx from "clsx";
 
 const links = [
   { to: "/", label: "Dashboard" },
-  { to: "/kanban", label: "Kanban" },
+  { to: "/kanban", label: "Board" },
   { to: "/portal", label: "Portal" },
-  { to: "/swarm", label: "Enxame" },
-  { to: "/approvals", label: "Aprovações" },
-  { to: "/tickets", label: "Chamados" },
-  { to: "/agents", label: "Agentes" },
-  { to: "/projects", label: "Projetos" },
+  { to: "/swarm", label: "Swarm" },
+  { to: "/approvals", label: "Approvals" },
+  { to: "/tickets", label: "Tickets" },
+  { to: "/agents", label: "Agents" },
+  { to: "/projects", label: "Projects" },
 ];
 
 export function Layout() {
   return (
-    <div className="min-h-screen lg:grid lg:grid-cols-[260px_1fr]">
-      <aside className="border-b border-[var(--line)] bg-[#1c2430] text-[#f7f3ea] lg:min-h-screen lg:border-b-0 lg:border-r lg:border-[#2b3442]">
-        <div className="px-6 py-7">
-          <div className="brand text-3xl font-bold tracking-tight">Manus</div>
-          <div className="mt-1 text-sm text-[#b7c0cc]">SwarmDesk</div>
-          <p className="mt-4 text-sm leading-relaxed text-[#9aa5b5]">
-            Controle humano, execução multiagente e Kanban auditável.
+    <div className="min-h-screen lg:grid lg:grid-cols-[240px_1fr]">
+      <aside className="border-b border-slate-800 bg-slate-950 text-slate-100 lg:min-h-screen lg:border-b-0 lg:border-r lg:border-slate-800">
+        <div className="px-5 py-6">
+          <div className="flex items-center gap-3">
+            <img src="/icon.png" alt="Manus SwarmDesk" className="h-10 w-10 rounded-xl" />
+            <div>
+              <div className="brand text-xl font-extrabold tracking-tight">Manus</div>
+              <div className="text-xs font-medium text-slate-400">SwarmDesk</div>
+            </div>
+          </div>
+          <p className="mt-4 text-sm leading-relaxed text-slate-400">
+            Multi-agent software factory with a live Kanban board.
           </p>
         </div>
-        <nav className="flex gap-2 overflow-x-auto px-4 pb-4 lg:flex-col lg:overflow-visible lg:px-3">
+        <nav className="flex gap-1 overflow-x-auto px-3 pb-4 lg:flex-col lg:overflow-visible">
           {links.map((link) => (
             <NavLink
               key={link.to}
@@ -31,10 +36,10 @@ export function Layout() {
               end={link.to === "/"}
               className={({ isActive }) =>
                 clsx(
-                  "whitespace-nowrap rounded-2xl px-4 py-3 text-sm font-semibold transition",
+                  "whitespace-nowrap rounded-xl px-3 py-2.5 text-sm font-semibold transition",
                   isActive
-                    ? "bg-[var(--accent)] text-white"
-                    : "text-[#d5dbe4] hover:bg-white/8",
+                    ? "bg-blue-600 text-white shadow-sm"
+                    : "text-slate-300 hover:bg-white/5 hover:text-white",
                 )
               }
             >
@@ -43,7 +48,7 @@ export function Layout() {
           ))}
         </nav>
       </aside>
-      <main className="min-w-0 px-4 py-6 sm:px-6 lg:px-8">
+      <main className="min-w-0 px-4 py-5 sm:px-6 lg:px-7">
         <Outlet />
       </main>
     </div>

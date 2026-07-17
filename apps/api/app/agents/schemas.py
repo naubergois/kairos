@@ -67,13 +67,30 @@ class SwarmDesign(BaseModel):
     escalation_policy: str = "open_ticket_or_human"
 
 
+class AppFile(BaseModel):
+    path: str = Field(description="Relative file path, e.g. index.html or main.py")
+    content: str = Field(description="Full file contents")
+
+
 class ImplementationResult(BaseModel):
     summary: str
     files_changed: list[str]
     design_notes: str
     api_contracts: list[str] = Field(default_factory=list)
     open_risks: list[str] = Field(default_factory=list)
-    artifact_markdown: str = Field(description="Markdown describing the implementation proposal")
+    artifact_markdown: str = Field(description="Markdown describing the implementation")
+    app_kind: str = Field(
+        default="static",
+        description="static (HTML/CSS/JS served by http.server) or fastapi",
+    )
+    app_files: list[AppFile] = Field(
+        default_factory=list,
+        description="Complete runnable mini-app source files",
+    )
+    entrypoint: str = Field(
+        default="index.html",
+        description="Main entry file: index.html or main.py",
+    )
 
 
 class ReviewResult(BaseModel):

@@ -124,4 +124,10 @@ export const api = {
   dashboard: {
     metrics: () => request<DashboardMetrics>("/dashboard/metrics"),
   },
+  runtime: {
+    get: (cardId: string) =>
+      request<{ card_id: string; preview_url?: string; status?: string; port?: number }>(
+        `/runtime/${cardId}`,
+      ),
+  },
 };

@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.db import init_store
-from app.routers import agents, approvals, cards, chat, dashboard, projects, swarm, tickets
+from app.routers import agents, approvals, cards, chat, dashboard, projects, runtime, swarm, tickets
 from app.services.seed import seed_if_empty
 
 
@@ -34,6 +34,7 @@ app.include_router(agents.router)
 app.include_router(swarm.router)
 app.include_router(tickets.router)
 app.include_router(dashboard.router)
+app.include_router(runtime.router)
 
 
 @app.get("/health")

@@ -54,6 +54,9 @@ export interface TaskCard {
   agents: string[];
   subtasks: string[];
   block_reason: string | null;
+  preview_url: string | null;
+  runtime_status: string | null;
+  runtime_port: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -286,19 +289,35 @@ export interface DashboardMetrics {
 }
 
 export const COLUMN_LABELS: Record<KanbanColumn, string> = {
-  entrada: "Entrada",
-  triagem: "Triagem por IA",
-  refinamento: "Em refinamento",
-  aguardando_aprovacao: "Aguardando aprovação",
-  pronto_enxame: "Pronto para o enxame",
-  em_execucao: "Em execução",
-  em_revisao: "Em revisão",
-  em_testes: "Em testes",
-  aguardando_decisao: "Aguardando decisão",
-  pronto_entrega: "Pronto para entrega",
-  concluido: "Concluído",
-  bloqueado: "Bloqueado",
-  cancelado: "Cancelado",
+  entrada: "Inbox",
+  triagem: "AI Triage",
+  refinamento: "Refining",
+  aguardando_aprovacao: "Awaiting Approval",
+  pronto_enxame: "Ready for Swarm",
+  em_execucao: "Building",
+  em_revisao: "Code Review",
+  em_testes: "Testing",
+  aguardando_decisao: "Needs Decision",
+  pronto_entrega: "Ready to Ship",
+  concluido: "Live",
+  bloqueado: "Blocked",
+  cancelado: "Cancelled",
+};
+
+export const COLUMN_COLORS: Record<KanbanColumn, string> = {
+  entrada: "#94a3b8",
+  triagem: "#06b6d4",
+  refinamento: "#8b5cf6",
+  aguardando_aprovacao: "#f59e0b",
+  pronto_enxame: "#6366f1",
+  em_execucao: "#2563eb",
+  em_revisao: "#ec4899",
+  em_testes: "#10b981",
+  aguardando_decisao: "#f97316",
+  pronto_entrega: "#0ea5e9",
+  concluido: "#059669",
+  bloqueado: "#e11d48",
+  cancelado: "#64748b",
 };
 
 export const KANBAN_COLUMNS: KanbanColumn[] = [

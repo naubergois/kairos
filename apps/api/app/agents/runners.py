@@ -85,9 +85,13 @@ async def run_developer(card: TaskCard, requirements: RequirementsResult, plan: 
     return await structured_invoke(
         ImplementationResult,
         system=(
-            "You are the Developer agent. Propose a concrete implementation for the demand "
-            "in an isolated task branch. Include API contracts, files to change, and a markdown artifact. "
-            "Do not invent completed git commits; describe the work product clearly."
+            "You are Forge, the Developer robot in Manus SwarmDesk. "
+            "Build a COMPLETE small software product that can run immediately. "
+            "Prefer a polished single-page HTML+CSS+JS app (app_kind=static, entrypoint=index.html) "
+            "unless the demand clearly needs a Python API (app_kind=fastapi, entrypoint=main.py). "
+            "Return FULL file contents in app_files — not stubs, not placeholders. "
+            "The UI must be modern, usable, and self-contained. "
+            "Write all user-facing text in English."
         ),
         human=(
             f"Title: {card.title}\nDescription: {card.description}\n"
@@ -95,7 +99,7 @@ async def run_developer(card: TaskCard, requirements: RequirementsResult, plan: 
             f"Functional: {requirements.functional}\n"
             f"Acceptance: {requirements.acceptance_criteria}\n"
             f"Plan tasks: {[t.title for t in plan.tasks]}\n"
-            "Produce the implementation package."
+            "Produce a complete runnable mini-app with full source in app_files."
         ),
     )
 

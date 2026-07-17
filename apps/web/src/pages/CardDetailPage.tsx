@@ -42,20 +42,20 @@ export function CardDetailPage() {
   async function decide(kind: "approve" | "reject") {
     setBusy(true);
     try {
-      if (kind === "approve") await api.cards.approve(id, "Aprovado via detalhe");
-      else await api.cards.reject(id, "Reprovado via detalhe");
-      setToast(kind === "approve" ? "Aprovação registrada" : "Cartão devolvido ao refinamento");
+      if (kind === "approve") await api.cards.approve(id, "Approved from card detail");
+      else await api.cards.reject(id, "Rejected from card detail");
+      setToast(kind === "approve" ? "Approval recorded" : "Sent back to refinement");
       await load();
       await refreshAll();
     } catch (err) {
-      setToast(err instanceof Error ? err.message : "Falha na aprovação");
+      setToast(err instanceof Error ? err.message : "Approval failed");
     } finally {
       setBusy(false);
     }
   }
 
   if (!detail) {
-    return <EmptyState title="Carregando cartão" body="Buscando requisitos, plano e evidências..." />;
+    return <EmptyState title="Loading card" body="Fetching requirements, plan, and evidence..." />;
   }
 
   const { card, requirements, plan, mission, artifacts, tests, reviews, tickets, approvals, timeline } =
@@ -66,27 +66,38 @@ export function CardDetailPage() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <Link to="/kanban" className="text-sm font-semibold text-[var(--accent)]">
-            ← Voltar ao Kanban
+          <Link to="/kanban" className="text-sm font-semibold text-blue-600">
+            ← Back to board
           </Link>
-          <h1 className="mt-2 text-4xl font-semibold tracking-tight">{card.title}</h1>
+          <h1 className="mt-2 text-4xl font-extrabold tracking-tight">{card.title}</h1>
           <div className="mt-3 flex flex-wrap gap-2">
             <Badge tone="info">{COLUMN_LABELS[card.column]}</Badge>
             <Badge tone={priorityTone(card.priority)}>{card.priority}</Badge>
             <Badge>{card.type}</Badge>
-            <Badge tone="accent">autonomia {card.autonomy_level}</Badge>
+            <Badge tone="accent">autonomy {card.autonomy_level}</Badge>
+            {card.preview_url ? <Badge tone="success">Live preview</Badge> : null}
           </div>
         </div>
-        {pending.length ? (
-          <div className="flex gap-2">
-            <Button disabled={busy} onClick={() => void decide("approve")}>
-              Aprovar
+        <div className="flex gap-2">
+          {card.preview_url ? (
+            <Button
+              variant="soft"
+              onClick={() => window.open(card.preview_url!, "_blank", "noreferrer")}
+            >
+              Open live app
             </Button>
-            <Button variant="danger" disabled={busy} onClick={() => void decide("reject")}>
-              Reprovar
-            </Button>
-          </div>
-        ) : null}
+          ) : null}
+          {pending.length ? (
+            <>
+              <Button disabled={busy} onClick={() => void decide("approve")}>
+                Approve
+              </Button>
+              <Button variant="danger" disabled={busy} onClick={() => void decide("reject")}>
+                Reject
+              </Button>
+            </>
+          ) : null}
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2">

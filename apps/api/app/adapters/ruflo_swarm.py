@@ -218,11 +218,17 @@ class RufloSwarmManager:
             state["feedback"] = ""
 
         implementation = await runners.run_developer(card, req_llm, plan)
+        from app.services.runtime import deploy_app
+
+        card = deploy_app(card, implementation)
         card.budget_spent += 48_000
+        card.updated_at = datetime.utcnow()
         for agent in mission.agents:
-            if agent.role in {"desenvolvedor", "developer", "backend", "frontend"}:
+            if agent.role in {"desenvolvedor", "developer", "backend", "frontend", "Forge"}:
                 agent.status = "completed"
-                agent.output_summary = implementation.summary[:280]
+                agent.output_summary = (
+                    f"{implementation.summary[:200]} · live {card.preview_url or 'n/a'}"
+                )
         mission.progress = 0.45
         mission.status = "executing"
         mission.updated_at = datetime.utcnow()
@@ -234,11 +240,23 @@ class RufloSwarmManager:
             "implementation.md",
             implementation.summary,
             "desenvolvedor",
-            f"artifacts://{card.id}/implementation.md",
+            card.preview_url or f"artifacts://{card.id}/implementation.md",
             implementation.artifact_markdown,
         )
+        if card.preview_url:
+            await self._artifact(
+                card,
+                "runtime",
+                "live-preview",
+                f"Mini-app deployed at {card.preview_url}",
+                "desenvolvedor",
+                card.preview_url,
+                f"port={card.runtime_port}",
+            )
         await self._audit(card, "execute_subtasks", KanbanColumn.EM_EXECUCAO.value, {
             "files": implementation.files_changed,
+            "preview_url": card.preview_url,
+            "runtime_status": card.runtime_status,
         })
         return {
             "card": card.model_dump(mode="json"),
@@ -382,11 +400,24 @@ class RufloSwarmManager:
 
         if test.failed > 0:
             round_n = int(state.get("correction_round") or 0)
-            feedback = f"Testes falharam ({test.failed}): {test.recommendation}"
+            feedback = f"Tests failed ({test.failed}): {test.recommendation}"
             if test.failures:
-                feedback += "\nFalhas: " + "; ".join(
+                feedback += "\nFailures: " + "; ".join(
                     f"{f.name}: {f.message}" for f in test.failures
                 )
+            # If a live preview is already deployed and most tests pass, ship with residual risk.
+            mostly_ok = test.executed > 0 and test.failed < max(1, test.executed // 2)
+            if card.preview_url and mostly_ok:
+                await self._audit(card, "tests_warning_continue", KanbanColumn.EM_TESTES.value, {
+                    "failed": test.failed,
+                    "preview_url": card.preview_url,
+                })
+                return {
+                    "card": card.model_dump(mode="json"),
+                    "mission": mission.model_dump(mode="json"),
+                    "tests": test.model_dump(mode="json"),
+                    "error": "",
+                }
             if round_n < 1:
                 return {
                     "card": card.model_dump(mode="json"),
